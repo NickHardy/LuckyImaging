@@ -29,6 +29,7 @@ namespace NINA.Luckyimaging {
     [Export(typeof(IPluginManifest))]
     public class Luckyimaging : PluginBase, INotifyPropertyChanged {
         private readonly IPluginOptionsAccessor pluginSettings;
+        private readonly IImageSaveMediator imageSaveMediator;
 
         public ImagePattern luckyRunPattern = new ImagePattern("$$LUCKYRUN$$", "Current lucky imaging run for the target", "LuckyImaging");
 
@@ -36,7 +37,7 @@ namespace NINA.Luckyimaging {
         public ImagePattern roiYPattern = new ImagePattern("$$ROIY$$", "Y-position of the ROI", "LuckyImaging");
 
         [ImportingConstructor]
-        public Luckyimaging(IProfileService profileService, IOptionsVM options) {
+        public Luckyimaging(IProfileService profileService, IOptionsVM options, IImageSaveMediator imageSaveMediator) {
             if (Settings.Default.UpdateSettings) {
                 Settings.Default.Upgrade();
                 Settings.Default.UpdateSettings = false;
@@ -45,6 +46,7 @@ namespace NINA.Luckyimaging {
 
             // This helper class can be used to store plugin settings that are dependent on the current profile
             this.pluginSettings = new PluginOptionsAccessor(profileService, Guid.Parse(this.Identifier));
+            this.imageSaveMediator = imageSaveMediator;
 
             luckyRunPattern.Value = "0";
             roiXPattern.Value = "0";
@@ -54,10 +56,12 @@ namespace NINA.Luckyimaging {
             options.AddImagePattern(roiXPattern);
             options.AddImagePattern(roiYPattern);
 
+            this.imageSaveMediator.BeforeFinalizeImageSaved += ImageSaveMediator_BeforeFinalizeImageSaved;
         }
 
         public override Task Teardown() {
             // Make sure to unregister an event when the object is no longer in use. Otherwise garbage collection will be prevented.
+            this.imageSaveMediator.BeforeFinalizeImageSaved -= ImageSaveMediator_BeforeFinalizeImageSaved;
             return base.Teardown();
         }
 
@@ -70,6 +74,14 @@ namespace NINA.Luckyimaging {
                 CoreUtil.SaveSettings(Settings.Default);
                 RaisePropertyChanged();
             }
+        }
+
+        private Task ImageSaveMediator_BeforeFinalizeImageSaved(object sender, BeforeFinalizeImageSavedEventArgs e) {
+            // Normal images saved will get an empty value
+            e.AddImagePattern(new ImagePattern(luckyRunPattern.Key, luckyRunPattern.Description, luckyRunPattern.Category) {
+                Value = string.Empty
+            });
+            return Task.CompletedTask;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

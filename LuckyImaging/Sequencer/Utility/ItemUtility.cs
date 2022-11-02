@@ -16,6 +16,8 @@ using NINA.Astrometry;
 using NINA.Sequencer.Container;
 using NINA.Core.Utility;
 using NINA.Luckyimaging.Sequencer.Container;
+using System.Windows.Media.Imaging;
+using System.IO;
 
 namespace NINA.Luckyimaging.Sequencer.Utility {
 

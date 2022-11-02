@@ -49,12 +49,13 @@ namespace NINA.Luckyimaging.Sequencer.Container {
     [Export(typeof(ISequenceItem))]
     [Export(typeof(ISequenceContainer))]
     [JsonObject(MemberSerialization.OptIn)]
-    public class LuckyTargetContainer : SequenceContainer, IDeepSkyObjectContainer {
+    public class LuckyTargetContainer : SequenceContainer, IDeepSkyObjectContainer, ICameraConsumer {
         private readonly IProfileService profileService;
         private ICameraMediator cameraMediator;
         private readonly IFramingAssistantVM framingAssistantVM;
         private readonly IPlanetariumFactory planetariumFactory;
         private readonly IApplicationMediator applicationMediator;
+        private readonly IImageSaveMediator imageSaveMediator;
         private IOptionsVM options;
         private INighttimeCalculator nighttimeCalculator;
         private InputTarget target;
@@ -68,16 +69,18 @@ namespace NINA.Luckyimaging.Sequencer.Container {
                 IFramingAssistantVM framingAssistantVM,
                 IApplicationMediator applicationMediator,
                 IPlanetariumFactory planetariumFactory,
-                IOptionsVM options) : base(new SequentialStrategy()) {
+                IOptionsVM options,
+                IImageSaveMediator imageSaveMediator) : base(new SequentialStrategy()) {
             this.profileService = profileService;
             this.cameraMediator = cameraMediator;
             this.nighttimeCalculator = nighttimeCalculator;
             this.applicationMediator = applicationMediator;
             this.framingAssistantVM = framingAssistantVM;
             this.planetariumFactory = planetariumFactory;
+            this.imageSaveMediator = imageSaveMediator;
             this.options = options;
-            CameraInfo = this.cameraMediator.GetInfo();
-            luckyimaging = new Luckyimaging(profileService, options);
+            cameraMediator.RegisterConsumer(this);
+            luckyimaging = new Luckyimaging(profileService, options, imageSaveMediator);
             SubSampleRectangle = new ObservableRectangle(0, 0, 1024, 1024);
             Task.Run(() => NighttimeData = nighttimeCalculator.Calculate());
             Target = new InputTarget(Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Latitude), Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Longitude), profileService.ActiveProfile.AstrometrySettings.Horizon);
@@ -166,6 +169,14 @@ namespace NINA.Luckyimaging.Sequencer.Container {
             }
         }
 
+        public void UpdateDeviceInfo(CameraInfo deviceInfo) {
+            CameraInfo = deviceInfo;
+        }
+
+        public void Dispose() {
+            cameraMediator.RemoveConsumer(this);
+        }
+
         private ObservableRectangle subSampleRectangle;
 
         [JsonProperty]
@@ -210,7 +221,7 @@ namespace NINA.Luckyimaging.Sequencer.Container {
         }
 
         public override object Clone() {
-            var clone = new LuckyTargetContainer(profileService, cameraMediator, nighttimeCalculator, framingAssistantVM, applicationMediator, planetariumFactory, options) {
+            var clone = new LuckyTargetContainer(profileService, cameraMediator, nighttimeCalculator, framingAssistantVM, applicationMediator, planetariumFactory, options, imageSaveMediator) {
                 Icon = Icon,
                 Name = Name,
                 Category = Category,

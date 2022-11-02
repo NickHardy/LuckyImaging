@@ -7,8 +7,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("LuckyImaging")]
@@ -24,7 +24,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyright("Copyright © 2022 Nick Hardy")]
 
 // The minimum Version of N.I.N.A. that this plugin is compatible with
-[assembly: AssemblyMetadata("MinimumApplicationVersion", "2.0.1.2001")]
+[assembly: AssemblyMetadata("MinimumApplicationVersion", "2.0.3.2005")]
 
 // The license your plugin code is using
 [assembly: AssemblyMetadata("License", "MPL-2.0")]
@@ -42,7 +42,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyMetadata("Tags", "Lucky Imaging")]
 
 //[Optional] A link that will show a log of all changes in between your plugin's versions
-[assembly: AssemblyMetadata("ChangelogURL", "https://mypluginsourcerepo.com/project/CHANGELOG.md")]
+[assembly: AssemblyMetadata("ChangelogURL", "https://bitbucket.org/NickHardy/luckyimaging/commits/")]
 
 //[Optional] The url to a featured logo that will be displayed in the plugin list next to the name
 [assembly: AssemblyMetadata("FeaturedImageURL", "")]
@@ -61,8 +61,11 @@ Also note that one run of the 'Take Video Roi Exposures' instruction will be see
 So if you want 500 images of 1 second, it will be seen as a 500 second image. There will also be some overhead, so it's not completely accurate.
 But if you want to dither or autofocus or things like that, don't create a very large instruction.  
 
-To increase the speed as much as possible, the lucky images won't show up in the history and will not trigger any autofocus or center after drift triggers, because they are not processed like normal images.
-It will only show every nth image in the image viewer, you can set it in the options. Depending on your imaging-pc you can set this higher or lower.
+*Take Video Roi Exposures*
+I have added a 'process images' button. If your imaging pc is up to it, you can turn this on, it will run star detection and statistics and they will show up in the imaging history.
+You can also choose to discard images based on the Hfr being to high or starcount being to low.
+To increase the speed as much as possible, turn the process images off and the lucky images won't show up in the history and will not trigger any autofocus or center after drift triggers, because they are not processed like normal images.
+It will then only show every nth image in the image viewer, you can set it in the options. Depending on your imaging-pc you can set this higher or lower.
 Please take a 'normal' image every once in a while to be able to use those triggers.
 
 The 'Calculate Roi Position' can be used to center the ROI on your target. It will platesolve the full image and after a successful platesolve it will center the ROI on to the target by updating the x,y coordinates in the 'Lucky Target Container'.

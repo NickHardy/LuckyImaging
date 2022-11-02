@@ -77,7 +77,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             this.filterWheelMediator = filterWheelMediator;
             this.options = options;
             CameraInfo = this.cameraMediator.GetInfo();
-            luckyimaging = new Luckyimaging(profileService, this.options);
+            luckyimaging = new Luckyimaging(profileService, this.options, imageSaveMediator);
         }
 
         private TakeLiveExposures(TakeLiveExposures cloneMe) : this(cloneMe.profileService, cloneMe.cameraMediator, cloneMe.imagingMediator, cloneMe.imageSaveMediator, cloneMe.imageHistoryVM, cloneMe.filterWheelMediator, cloneMe.options) {
@@ -92,7 +92,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 Gain = Gain,
                 Offset = Offset,
                 ImageType = ImageType,
-                TotalExposureCount = TotalExposureCount
+                TotalExposureCount = TotalExposureCount,
+                ProcessImages = ProcessImages,
+                FilterOnHfr = FilterOnHfr,
+                FilterHfr = FilterHfr,
+                FilterOnStars = FilterOnStars,
+                FilterStars = FilterStars,
             };
 
             if (clone.Binning == null) {
@@ -153,6 +158,31 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         [JsonProperty]
         public int TotalExposureCount { get => totalExposureCount; set { totalExposureCount = value; RaisePropertyChanged(); } }
 
+        private bool processImages;
+
+        [JsonProperty]
+        public bool ProcessImages { get => processImages; set { processImages = value; RaisePropertyChanged(); } }
+
+        private bool filterOnHfr;
+
+        [JsonProperty]
+        public bool FilterOnHfr { get => filterOnHfr; set { filterOnHfr = value; RaisePropertyChanged(); } }
+
+        private double filterHfr;
+
+        [JsonProperty]
+        public double FilterHfr { get => filterHfr; set { filterHfr = value; RaisePropertyChanged(); } }
+
+        private bool filterOnStars;
+
+        [JsonProperty]
+        public bool FilterOnStars { get => filterOnStars; set { filterOnStars = value; RaisePropertyChanged(); } }
+
+        private double filterStars;
+
+        [JsonProperty]
+        public double FilterStars { get => filterStars; set { filterStars = value; RaisePropertyChanged(); } }
+
         private CameraInfo cameraInfo;
 
         public CameraInfo CameraInfo {
@@ -202,7 +232,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             var imageParams = new PrepareImageParameters(null, false);
             if (IsLightSequence()) {
-                imageParams = new PrepareImageParameters(true, false);
+                imageParams = new PrepareImageParameters(true, ProcessImages);
             }
 
             var target = RetrieveTarget(Parent);
@@ -236,20 +266,37 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     });
                     imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("ROIX", capture.SubSambleRectangle.X, "X-position of the ROI"));
                     imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("ROIY", capture.SubSambleRectangle.Y, "Y-position of the ROI"));
+                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("XORGSUBF", capture.SubSambleRectangle.X, "X-position of the ROI"));
+                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("YORGSUBF", capture.SubSambleRectangle.Y, "Y-position of the ROI"));
 
                     // Only show first and last image in Imaging window
-                    if (ExposureCount == 1 || ExposureCount % luckyimaging.ShowEveryNthImage == 0 || ExposureCount == TotalExposureCount) {
+                    if (!ProcessImages && (ExposureCount == 1 || ExposureCount % luckyimaging.ShowEveryNthImage == 0 || ExposureCount == TotalExposureCount)) {
                         _ = imagingMediator.PrepareImage(imageData, imageParams, token);
                     }
 
-                    List<ImagePattern> customPatterns = new List<ImagePattern>();
-                    customPatterns.Add(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
-                        Value = $"{luckyContainer.LuckyRun}"
-                    });
-                    FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
-                    string tempPath = await imageData.PrepareSave(fileSaveInfo);
-                    _ = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
-                    // _ = imageData.SaveToDisk(new FileSaveInfo(profileService), token);
+                    if (IsLightSequence() && ProcessImages) {
+                        var prepareTask = imagingMediator.PrepareImage(imageData, imageParams, token);
+                        var renderedImage = await prepareTask;
+                        var statistics = await renderedImage.RawImageData.Statistics;
+
+                        if ((!FilterOnHfr && !FilterOnStars) || ExposureCount == 1 || ExposureCount == TotalExposureCount ||
+                            (FilterOnHfr && !FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr) || 
+                            (FilterOnStars && !FilterOnHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars) ||
+                            (FilterOnHfr && FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars)) {
+                            var id = imageHistoryVM.GetNextImageId();
+                            imageData.MetaData.Image.Id = id;
+                            imageHistoryVM.Add(id, statistics, ImageType);
+                            await imageSaveMediator.Enqueue(imageData, prepareTask, progress, token);
+                        }
+                    } else {
+                        List<ImagePattern> customPatterns = new List<ImagePattern>();
+                        customPatterns.Add(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
+                            Value = $"{luckyContainer.LuckyRun}"
+                        });
+                        FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
+                        string tempPath = await imageData.PrepareSave(fileSaveInfo);
+                        _ = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
+                    }
 
                     if (ExposureCount >= TotalExposureCount) {
                         double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);

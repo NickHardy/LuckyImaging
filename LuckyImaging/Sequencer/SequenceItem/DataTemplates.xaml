@@ -228,33 +228,108 @@
     <DataTemplate DataType="{x:Type local:TakeLiveExposures}">
         <view:SequenceBlockView>
             <view:SequenceBlockView.SequenceItemContent>
-                <WrapPanel Orientation="Horizontal">
+                <WrapPanel Orientation="Vertical">
+                    <WrapPanel Orientation="Horizontal">
 
-                    <TextBlock VerticalAlignment="Center" Text="#" />
-                    <TextBox
+                        <TextBlock VerticalAlignment="Center" Text="#" />
+                        <TextBox
                         MinWidth="40"
                         Margin="5,0,0,0"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Text="{Binding TotalExposureCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
+                        <TextBlock
                         Margin="7.5,0,7.5,0"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Text="|" />
+
+                        <ContentPresenter Content="{StaticResource TakeExposureDetails}" />
+
+                        <TextBlock
+                        Margin="7.5,0,7.5,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="|" />
+
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Text="Process images" />
+                        <CheckBox
+                            Width="80"
+                            HorizontalAlignment="Right"
+                            IsChecked="{Binding ProcessImages}">
+                        </CheckBox>
+
+                        <TextBlock
+                        Margin="7.5,0,7.5,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="|" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="# " />
+                            <TextBlock VerticalAlignment="Center" Text="{Binding ExposureCount}" />
+                        </StackPanel>
+
+                    </WrapPanel>
+                    <WrapPanel 
+                        Orientation="Horizontal"
+                        Visibility="{Binding ProcessImages, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}">
+
+                        <TextBlock VerticalAlignment="Center" Text="Discard images based on:" />
+
+                        <TextBlock
+                            Margin="5,0,0,0"
+                            VerticalAlignment="Center"
+                            Text="Hfr &gt;" />
+                        <ninactrl:UnitTextBox
+                            MinWidth="40"
+                            Margin="5,0,0,0"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Text="{Binding FilterHfr}"
+                            TextAlignment="Right" />
+                        <CheckBox
+                            Width="80"
+                            HorizontalAlignment="Right"
+                            IsChecked="{Binding FilterOnHfr}">
+                        </CheckBox>
+
+                        <TextBlock
+                        Margin="7.5,0,7.5,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="|" />
+
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Text="Stars &lt;" />
+                        <ninactrl:UnitTextBox
+                            MinWidth="40"
+                            Margin="5,0,0,0"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Text="{Binding FilterStars}"
+                            TextAlignment="Right" />
+                        <CheckBox
+                            Width="80"
+                            HorizontalAlignment="Right"
+                            IsChecked="{Binding FilterOnStars}">
+                        </CheckBox>
+
+                    </WrapPanel>
+                </WrapPanel>
+            </view:SequenceBlockView.SequenceItemContent>
+        </view:SequenceBlockView>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type local:TakeRoiExposure}">
+        <view:SequenceBlockView>
+            <view:SequenceBlockView.SequenceItemContent>
+                <WrapPanel Orientation="Horizontal">
 
                     <ContentPresenter Content="{StaticResource TakeExposureDetails}" />
-                    
-                    <TextBlock
-                        Margin="7.5,0,7.5,0"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Text="|" />
-
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" Text="# " />
-                        <TextBlock VerticalAlignment="Center" Text="{Binding ExposureCount}" />
-                    </StackPanel>
 
                 </WrapPanel>
             </view:SequenceBlockView.SequenceItemContent>
