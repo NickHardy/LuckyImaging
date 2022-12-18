@@ -208,7 +208,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             if (target != null) {
                 imageData.MetaData.Target.Name = target.DeepSkyObject.NameAsAscii;
                 imageData.MetaData.Target.Coordinates = target.InputCoordinates.Coordinates;
-                imageData.MetaData.Target.Rotation = target.Rotation;
+                imageData.MetaData.Target.PositionAngle = target.PositionAngle;
             }
 
             imageData.MetaData.GenericHeaders.Add(new IntMetaDataHeader("LUCKYRUN", luckyContainer.LuckyRun, "Current lucky imaging run for the target"));

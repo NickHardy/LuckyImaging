@@ -171,7 +171,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
                 //Translate your coordinates to x/y in relation to center coordinates
                 var inputTarget = ItemUtility.RetrieveInputTarget(Parent);
-                Point targetPoint = inputTarget.InputCoordinates.Coordinates.XYProjection(plateSolveResult.Coordinates, center, arcsecPerPix, arcsecPerPix, plateSolveResult.Orientation, ProjectionType.Gnomonic);
+                Point targetPoint = inputTarget.InputCoordinates.Coordinates.XYProjection(plateSolveResult.Coordinates, center, arcsecPerPix, arcsecPerPix, plateSolveResult.PositionAngle, ProjectionType.Gnomonic);
                 Logger.Debug("Found target at " + targetPoint.X + "x" + targetPoint.Y);
 
                 // Check if the target is in the image
@@ -194,7 +194,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             if (target != null) {
                 imageData.MetaData.Target.Name = !plateSolveResult.Success ? target.TargetName + "_failed" : target.TargetName;
                 imageData.MetaData.Target.Coordinates = target.InputCoordinates.Coordinates;
-                imageData.MetaData.Target.Rotation = plateSolveResult.Orientation;
+                imageData.MetaData.Target.PositionAngle = plateSolveResult.PositionAngle;
             }
 
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("ROIX", luckyContainer.X, "X-position of the ROI"));
