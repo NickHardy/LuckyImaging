@@ -81,6 +81,7 @@ namespace NINA.Luckyimaging.Sequencer.Container {
             this.options = options;
             cameraMediator.RegisterConsumer(this);
             luckyimaging = new Luckyimaging(profileService, options, imageSaveMediator);
+            EnableSubSample = true;
             SubSampleRectangle = new ObservableRectangle(0, 0, 1024, 1024);
             Task.Run(() => NighttimeData = nighttimeCalculator.Calculate());
             Target = new InputTarget(Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Latitude), Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Longitude), profileService.ActiveProfile.AstrometrySettings.Horizon);
@@ -177,6 +178,11 @@ namespace NINA.Luckyimaging.Sequencer.Container {
             cameraMediator.RemoveConsumer(this);
         }
 
+        private bool enableSubSample;
+
+        [JsonProperty]
+        public bool EnableSubSample { get => enableSubSample; set { enableSubSample = value; RaisePropertyChanged(); } }
+
         private ObservableRectangle subSampleRectangle;
 
         [JsonProperty]
@@ -232,10 +238,11 @@ namespace NINA.Luckyimaging.Sequencer.Container {
                 Target = new InputTarget(Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Latitude), Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Longitude), profileService.ActiveProfile.AstrometrySettings.Horizon),
             };
 
-            clone.Target.TargetName = this.Target.TargetName;
-            clone.Target.InputCoordinates.Coordinates = this.Target.InputCoordinates.Coordinates.Transform(Epoch.J2000);
-            clone.Target.Rotation = this.Target.Rotation;
+            clone.Target.TargetName = Target.TargetName;
+            clone.Target.InputCoordinates.Coordinates = Target.InputCoordinates.Coordinates.Transform(Epoch.J2000);
+            clone.Target.Rotation = Target.Rotation;
 
+            clone.EnableSubSample = EnableSubSample;
             clone.SubSampleRectangle.X = SubSampleRectangle.X;
             clone.SubSampleRectangle.Y = SubSampleRectangle.Y;
             clone.SubSampleRectangle.Width = SubSampleRectangle.Width;
