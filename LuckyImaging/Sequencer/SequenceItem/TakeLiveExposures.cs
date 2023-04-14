@@ -19,15 +19,11 @@ using NINA.Sequencer.Container;
 using NINA.Sequencer.Validations;
 using NINA.Core.Utility;
 using NINA.Equipment.Interfaces.Mediator;
-using NINA.ViewModel.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
 using System.IO;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NINA.WPF.Base.Interfaces.Mediator;
@@ -45,6 +41,12 @@ using NINA.Sequencer.SequenceItem;
 using NINA.Luckyimaging.Sequencer.Utility;
 using NINA.Image.ImageData;
 using NINA.Luckyimaging.Sequencer.Container;
+using NINA.Equipment.Equipment.MyFilterWheel;
+using NINA.Equipment.Equipment.MyTelescope;
+using NINA.Equipment.Equipment.MyWeatherData;
+using NINA.Equipment.Equipment.MyRotator;
+using NINA.Equipment.Equipment.MyFocuser;
+using NINA.Equipment.Utility;
 
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
@@ -54,33 +56,58 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
     [ExportMetadata("Category", "LuckyImaging")]
     [Export(typeof(ISequenceItem))]
     [JsonObject(MemberSerialization.OptIn)]
-    public class TakeLiveExposures : NINA.Sequencer.SequenceItem.SequenceItem, IExposureItem, IValidatable {
+    public class TakeLiveExposures : NINA.Sequencer.SequenceItem.SequenceItem, IExposureItem, IValidatable, ICameraConsumer, ITelescopeConsumer, IFilterWheelConsumer, IFocuserConsumer, IRotatorConsumer, IWeatherDataConsumer {
         private ICameraMediator cameraMediator;
         private IImagingMediator imagingMediator;
         private IImageSaveMediator imageSaveMediator;
         private IImageHistoryVM imageHistoryVM;
         private IProfileService profileService;
         private IFilterWheelMediator filterWheelMediator;
+        private FilterWheelInfo filterWheelInfo;
+        private IFocuserMediator focuserMediator;
+        private FocuserInfo focuserInfo;
+        private ITelescopeMediator telescopeMediator;
+        private TelescopeInfo telescopeInfo;
+        private IRotatorMediator rotatorMediator;
+        private RotatorInfo rotatorInfo;
+        private WeatherDataInfo weatherDataInfo;
+        private IWeatherDataMediator weatherDataMediator;
         private IOptionsVM options;
         private Luckyimaging luckyimaging;
 
         [ImportingConstructor]
-        public TakeLiveExposures(IProfileService profileService, ICameraMediator cameraMediator, IImagingMediator imagingMediator, IImageSaveMediator imageSaveMediator, IImageHistoryVM imageHistoryVM, IFilterWheelMediator filterWheelMediator, IOptionsVM options) {
+        public TakeLiveExposures(IProfileService profileService, ICameraMediator cameraMediator, IImagingMediator imagingMediator, IImageSaveMediator imageSaveMediator, IImageHistoryVM imageHistoryVM, IFilterWheelMediator filterWheelMediator, IOptionsVM options, ITelescopeMediator telescopeMediator, IFocuserMediator focuserMediator, IRotatorMediator rotatorMediator, IWeatherDataMediator weatherDataMediator) {
             Gain = -1;
             Offset = -1;
             ImageType = CaptureSequence.ImageTypes.LIGHT;
-            this.cameraMediator = cameraMediator;
             this.imagingMediator = imagingMediator;
             this.imageSaveMediator = imageSaveMediator;
             this.imageHistoryVM = imageHistoryVM;
             this.profileService = profileService;
+
+            this.cameraMediator = cameraMediator;
+            this.cameraMediator.RegisterConsumer(this);
+
+            this.telescopeMediator = telescopeMediator;
+            this.telescopeMediator.RegisterConsumer(this);
+
             this.filterWheelMediator = filterWheelMediator;
+            this.filterWheelMediator.RegisterConsumer(this);
+
+            this.focuserMediator = focuserMediator;
+            this.focuserMediator.RegisterConsumer(this);
+
+            this.rotatorMediator = rotatorMediator;
+            this.rotatorMediator.RegisterConsumer(this);
+
+            this.weatherDataMediator = weatherDataMediator;
+            this.weatherDataMediator.RegisterConsumer(this);
+
             this.options = options;
-            CameraInfo = this.cameraMediator.GetInfo();
             luckyimaging = new Luckyimaging(profileService, this.options, imageSaveMediator);
         }
 
-        private TakeLiveExposures(TakeLiveExposures cloneMe) : this(cloneMe.profileService, cloneMe.cameraMediator, cloneMe.imagingMediator, cloneMe.imageSaveMediator, cloneMe.imageHistoryVM, cloneMe.filterWheelMediator, cloneMe.options) {
+        private TakeLiveExposures(TakeLiveExposures cloneMe) : this(cloneMe.profileService, cloneMe.cameraMediator, cloneMe.imagingMediator, cloneMe.imageSaveMediator, cloneMe.imageHistoryVM, cloneMe.filterWheelMediator, cloneMe.options, cloneMe.telescopeMediator, cloneMe.focuserMediator, cloneMe.rotatorMediator, cloneMe.weatherDataMediator) {
             CopyMetaData(cloneMe);
         }
 
@@ -226,7 +253,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 ImageType = ImageType,
                 ProgressExposureCount = ExposureCount,
                 TotalExposureCount = TotalExposureCount,
-                EnableSubSample = true,
+                EnableSubSample = luckyContainer.EnableSubSample,
                 SubSambleRectangle = ItemUtility.RetrieveLuckyTargetRoi(Parent),
             };
 
@@ -244,19 +271,11 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             await liveViewEnumerable.ForEachAsync(async exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
+                    var exposureStart = DateTime.Now.AddSeconds(-ExposureTime);
                     if (ExposureCount == 1) { seqDuration = Stopwatch.StartNew(); }
                     var imageData = await exposureData.ToImageData(progress, localCTS.Token);
 
-                    if (target != null) {
-                        imageData.MetaData.Target.Name = target.DeepSkyObject.NameAsAscii;
-                        imageData.MetaData.Target.Coordinates = target.InputCoordinates.Coordinates;
-                        imageData.MetaData.Target.PositionAngle = target.PositionAngle;
-                    }
-
-                    if (filterWheelMediator.GetInfo().Connected)
-                        imageData.MetaData.FilterWheel.Filter = filterWheelMediator.GetInfo().SelectedFilter.Name;
-
-                    imageData.MetaData.Image.ExposureStart = DateTime.Now;
+                    imageData.MetaData.Image.ExposureStart = exposureStart;
                     imageData.MetaData.Image.ExposureNumber = ExposureCount;
                     imageData.MetaData.Image.ExposureTime = ExposureTime;
 
@@ -264,10 +283,6 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
                         Value = $"{luckyContainer.LuckyRun}"
                     });
-                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("ROIX", capture.SubSambleRectangle.X, "X-position of the ROI"));
-                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("ROIY", capture.SubSambleRectangle.Y, "Y-position of the ROI"));
-                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("XORGSUBF", capture.SubSambleRectangle.X, "X-position of the ROI"));
-                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("YORGSUBF", capture.SubSambleRectangle.Y, "Y-position of the ROI"));
 
                     // Only show first and last image in Imaging window
                     if (!ProcessImages && (ExposureCount == 1 || ExposureCount % luckyimaging.ShowEveryNthImage == 0 || ExposureCount == TotalExposureCount)) {
@@ -283,12 +298,14 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                             (FilterOnHfr && !FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr) || 
                             (FilterOnStars && !FilterOnHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars) ||
                             (FilterOnHfr && FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars)) {
+                            AddMetaData(imageData.MetaData, target, capture.SubSambleRectangle);
                             var id = imageHistoryVM.GetNextImageId();
                             imageData.MetaData.Image.Id = id;
                             imageHistoryVM.Add(id, statistics, ImageType);
                             await imageSaveMediator.Enqueue(imageData, prepareTask, progress, token);
                         }
                     } else {
+                        AddMetaData(imageData.MetaData, target, capture.SubSambleRectangle);
                         List<ImagePattern> customPatterns = new List<ImagePattern>();
                         customPatterns.Add(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
                             Value = $"{luckyContainer.LuckyRun}"
@@ -312,6 +329,32 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 token.ThrowIfCancellationRequested();
                 Thread.Sleep(100);
             }
+        }
+
+        private void AddMetaData(
+            ImageMetaData metaData,
+            InputTarget target,
+            ObservableRectangle subSambleRectangle) {
+            
+            if (target != null) {
+                metaData.Target.Name = target.DeepSkyObject.NameAsAscii;
+                metaData.Target.Coordinates = target.InputCoordinates.Coordinates;
+                metaData.Target.Rotation = target.PositionAngle;
+            }
+
+            // Fill all available info from profile
+            metaData.FromProfile(profileService.ActiveProfile);
+            metaData.FromTelescopeInfo(telescopeInfo);
+            metaData.FromFilterWheelInfo(filterWheelInfo);
+            metaData.FromRotatorInfo(rotatorInfo);
+            metaData.FromFocuserInfo(focuserInfo);
+            metaData.FromWeatherDataInfo(weatherDataInfo);
+
+            if (metaData.Target.Coordinates == null || double.IsNaN(metaData.Target.Coordinates.RA))
+                metaData.Target.Coordinates = metaData.Telescope.Coordinates;
+
+            metaData.GenericHeaders.Add(new DoubleMetaDataHeader("XORGSUBF", subSambleRectangle.X, "X-position of the ROI"));
+            metaData.GenericHeaders.Add(new DoubleMetaDataHeader("YORGSUBF", subSambleRectangle.Y, "Y-position of the ROI"));
         }
 
         private bool IsLightSequence() {
@@ -362,6 +405,47 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             Issues = i;
             return i.Count == 0;
+        }
+
+        public void UpdateDeviceInfo(CameraInfo cameraStatus) {
+            CameraInfo = cameraStatus;
+        }
+
+        public void UpdateDeviceInfo(TelescopeInfo deviceInfo) {
+            this.telescopeInfo = deviceInfo;
+        }
+
+        public void UpdateDeviceInfo(FilterWheelInfo deviceInfo) {
+            this.filterWheelInfo = deviceInfo;
+        }
+
+        public void UpdateDeviceInfo(FocuserInfo deviceInfo) {
+            this.focuserInfo = deviceInfo;
+        }
+
+        public void UpdateDeviceInfo(RotatorInfo deviceInfo) {
+            this.rotatorInfo = deviceInfo;
+        }
+
+        public void UpdateDeviceInfo(WeatherDataInfo deviceInfo) {
+            this.weatherDataInfo = deviceInfo;
+        }
+
+        public void UpdateEndAutoFocusRun(AutoFocusInfo info) {
+            ;
+        }
+
+        public void UpdateUserFocused(FocuserInfo info) {
+            ;
+        }
+
+        public void Dispose() {
+            this.cameraMediator.RemoveConsumer(this);
+            this.telescopeMediator.RemoveConsumer(this);
+            this.filterWheelMediator.RemoveConsumer(this);
+            this.focuserMediator.RemoveConsumer(this);
+            this.rotatorMediator.RemoveConsumer(this);
+            this.weatherDataMediator.RemoveConsumer(this);
         }
 
         public override TimeSpan GetEstimatedDuration() {
