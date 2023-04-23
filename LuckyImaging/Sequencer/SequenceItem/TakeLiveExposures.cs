@@ -271,13 +271,17 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             await liveViewEnumerable.ForEachAsync(async exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
-                    var exposureStart = DateTime.Now.AddSeconds(-ExposureTime);
+                    var exposureEnd = DateTime.Now;
+                    var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
                     if (ExposureCount == 1) { seqDuration = Stopwatch.StartNew(); }
                     var imageData = await exposureData.ToImageData(progress, localCTS.Token);
 
                     imageData.MetaData.Image.ExposureStart = exposureStart;
                     imageData.MetaData.Image.ExposureNumber = ExposureCount;
                     imageData.MetaData.Image.ExposureTime = ExposureTime;
+                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-BEG", AstroUtil.GetJulianDate(exposureStart), "Julian exposure start date"));
+                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(exposureStart.AddSeconds(ExposureTime / 2)), "Julian exposure mid date"));
+                    imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-END", AstroUtil.GetJulianDate(exposureEnd), "Julian exposure end date"));
 
                     imageData.MetaData.GenericHeaders.Add(new IntMetaDataHeader("LUCKYRUN", luckyContainer.LuckyRun, "Current lucky imaging run for the target"));
                     options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
@@ -344,6 +348,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             // Fill all available info from profile
             metaData.FromProfile(profileService.ActiveProfile);
+            metaData.FromCameraInfo(CameraInfo);
             metaData.FromTelescopeInfo(telescopeInfo);
             metaData.FromFilterWheelInfo(filterWheelInfo);
             metaData.FromRotatorInfo(rotatorInfo);
@@ -352,6 +357,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             if (metaData.Target.Coordinates == null || double.IsNaN(metaData.Target.Coordinates.RA))
                 metaData.Target.Coordinates = metaData.Telescope.Coordinates;
+
+            metaData.GenericHeaders.Add(new StringMetaDataHeader("CAMERA", CameraInfo.Name));
 
             metaData.GenericHeaders.Add(new DoubleMetaDataHeader("XORGSUBF", subSambleRectangle.X, "X-position of the ROI"));
             metaData.GenericHeaders.Add(new DoubleMetaDataHeader("YORGSUBF", subSambleRectangle.Y, "Y-position of the ROI"));
