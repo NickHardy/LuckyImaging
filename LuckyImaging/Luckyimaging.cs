@@ -76,6 +76,28 @@ namespace NINA.Luckyimaging {
             }
         }
 
+        public bool SaveStatsToCsv {
+            get {
+                return Settings.Default.SaveStatsToCsv;
+            }
+            set {
+                Settings.Default.SaveStatsToCsv = value;
+                CoreUtil.SaveSettings(Settings.Default);
+                RaisePropertyChanged();
+            }
+        }
+        //MinimumAvailableMemory
+        public int MinimumAvailableMemory {
+            get {
+                return Settings.Default.MinimumAvailableMemory;
+            }
+            set {
+                Settings.Default.MinimumAvailableMemory = value;
+                CoreUtil.SaveSettings(Settings.Default);
+                RaisePropertyChanged();
+            }
+        }
+
         private Task ImageSaveMediator_BeforeFinalizeImageSaved(object sender, BeforeFinalizeImageSavedEventArgs e) {
             // Normal images saved will get an empty value
             e.AddImagePattern(new ImagePattern(luckyRunPattern.Key, luckyRunPattern.Description, luckyRunPattern.Category) {

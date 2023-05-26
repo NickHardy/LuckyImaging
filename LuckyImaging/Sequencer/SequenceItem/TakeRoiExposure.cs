@@ -48,6 +48,7 @@ using NINA.Equipment.Equipment.MyTelescope;
 using NINA.Equipment.Equipment.MyWeatherData;
 using NINA.WPF.Base.Mediator;
 using NINA.Equipment.Equipment.MyFilterWheel;
+using System.Reflection;
 
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
@@ -271,6 +272,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 metaData.Target.Rotation = target.Rotation;
             }
 
+            metaData.Image.ImageType = ImageType;
+
             // Fill all available info from profile
             metaData.FromProfile(profileService.ActiveProfile);
             metaData.FromCameraInfo(CameraInfo);
@@ -282,6 +285,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             if (metaData.Target.Coordinates == null || double.IsNaN(metaData.Target.Coordinates.RA))
                 metaData.Target.Coordinates = metaData.Telescope.Coordinates;
+
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            metaData.GenericHeaders.Add(new StringMetaDataHeader("PLCREATE", "LuckyImaging-" + assembly.GetName().Version.ToString(), "The plugin used to create this file."));
 
             metaData.GenericHeaders.Add(new StringMetaDataHeader("CAMERA", CameraInfo.Name));
 
