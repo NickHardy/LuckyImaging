@@ -177,6 +177,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         [JsonProperty]
         public int ExposureCount { get => exposureCount; set { exposureCount = value; RaisePropertyChanged(); } }
 
+        private bool processImages;
+
+        [JsonProperty]
+        public bool ProcessImages { get => processImages; set { processImages = value; RaisePropertyChanged(); } }
+
+
         private CameraInfo cameraInfo;
 
         public CameraInfo CameraInfo {
@@ -231,7 +237,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             };
 
             var imageParams = new PrepareImageParameters(null, false);
-            if (IsLightSequence()) {
+            if (IsLightSequence() && ProcessImages) {
                 imageParams = new PrepareImageParameters(true, true);
             }
 

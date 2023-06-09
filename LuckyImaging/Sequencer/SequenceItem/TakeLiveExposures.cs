@@ -140,6 +140,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 ImageType = ImageType,
                 TotalExposureCount = TotalExposureCount,
                 ProcessImages = ProcessImages,
+                SaveToMemory = SaveToMemory,
                 FilterOnHfr = FilterOnHfr,
                 FilterHfr = FilterHfr,
                 FilterOnStars = FilterOnStars,
@@ -209,6 +210,11 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         [JsonProperty]
         public bool ProcessImages { get => processImages; set { processImages = value; RaisePropertyChanged(); } }
 
+        private bool saveToMemory;
+
+        [JsonProperty]
+        public bool SaveToMemory { get => saveToMemory; set { saveToMemory = value; RaisePropertyChanged(); } }
+
         private bool filterOnHfr;
 
         [JsonProperty]
@@ -263,10 +269,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         public class Frame {
             public int FrameNumber { get; set; }
             public string DateObs { get; set; }
+            public string DateMid { get; set; }
 
-            public Frame(int frameNumber, DateTime dateObs) {
+            public Frame(int frameNumber, DateTime dateObs, DateTime dateMid) {
                 this.FrameNumber = frameNumber;
                 this.DateObs = dateObs.ToString("yyyy-MM-ddThh:mm:ss.fff");
+                this.DateMid = dateMid.ToString("yyyy-MM-ddThh:mm:ss.fff");
             }
 
             public sealed class FrameMap : ClassMap<Frame> {
@@ -274,6 +282,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 public FrameMap() {
                     Map(m => m.FrameNumber).Name("FrameNumber");
                     Map(m => m.DateObs).Name("DateObs");
+                    Map(m => m.DateMid).Name("DateMid");
                 }
             }
         }
@@ -299,13 +308,20 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
 
             _frames = new List<Frame>();
+            List<Task> tasks = new List<Task>();
+
+            bool discardedFirstImage = false;
             var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
             Stopwatch seqDuration = Stopwatch.StartNew();
             await liveViewEnumerable.ForEachAsync(exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
                     var exposureEnd = DateTime.Now; // first thing is to get the endTime
-                    
+                    if (!discardedFirstImage) {
+                        discardedFirstImage = true;
+                        seqDuration = Stopwatch.StartNew();
+                        return;
+                    }
                     // check memory
                     double availableMemoryMb = luckyimaging.MinimumAvailableMemory;
                     if (luckyimaging.MinimumAvailableMemory > 0) {
@@ -321,11 +337,16 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     } else {
                         if (luckyimaging.SaveStatsToCsv) {
                             var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
-                            _frames.Add(new Frame(ExposureCount, exposureStart));
+                            var exposureMid = ((DateTimeMetaDataHeader)exposureData.MetaData.GenericHeaders.FirstOrDefault())?.Value ?? exposureStart;
+                            _frames.Add(new Frame(ExposureCount, exposureStart, exposureMid));
                         }
-                        if (ExposureCount == 1) { seqDuration = Stopwatch.StartNew(); }
-
-                        _ = ProcessExposureData(exposureData, exposureEnd, luckyContainer.LuckyRun, progress, token);
+                        // Create tasks without starting them
+                        int id = ExposureCount;
+                        if (SaveToMemory) {
+                            tasks.Add(new Task(() => ProcessExposureData(exposureData, exposureEnd, luckyContainer.LuckyRun, id, progress, token)));
+                        } else {
+                            _ = ProcessExposureData(exposureData, exposureEnd, luckyContainer.LuckyRun, id, progress, token);
+                        }
 
                         if (ExposureCount >= TotalExposureCount) {
                             double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
@@ -335,6 +356,10 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     }
                 }
             });
+            // Start all tasks
+            foreach (var task in tasks) {
+                task.Start();
+            }
 
             // wait till camera reconnects. Specifically for QHY camera's
             Thread.Sleep(100);
@@ -352,9 +377,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     csv.WriteRecords(_frames);
                 }
             }
+
+            // Wait for all tasks to complete
+            Task.WhenAll(tasks).Wait();
         }
 
-        private async Task ProcessExposureData(IExposureData exposureData, DateTime exposureEnd, int luckyRun, IProgress<ApplicationStatus> progress, CancellationToken token) {
+        private async Task ProcessExposureData(IExposureData exposureData, DateTime exposureEnd, int luckyRun, int luckyImageId, IProgress<ApplicationStatus> progress, CancellationToken token) {
             LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
             var target = RetrieveTarget(Parent);
 
@@ -370,7 +398,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
             imageData.MetaData.Image.ExposureStart = exposureStart;
-            imageData.MetaData.Image.ExposureNumber = ExposureCount;
+            imageData.MetaData.Image.ExposureNumber = luckyImageId;
             imageData.MetaData.Image.ExposureTime = ExposureTime;
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-BEG", AstroUtil.GetJulianDate(exposureStart), "Julian exposure start date"));
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(exposureStart.AddSeconds(ExposureTime / 2)), "Julian exposure mid date"));
@@ -382,7 +410,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             });
 
             // Only show first and last image in Imaging window
-            if (!ProcessImages && (ExposureCount == 1 || ExposureCount % luckyimaging.ShowEveryNthImage == 0 || ExposureCount == TotalExposureCount)) {
+            if (!ProcessImages && (luckyImageId == 1 || luckyImageId % luckyimaging.ShowEveryNthImage == 0 || luckyImageId == TotalExposureCount)) {
                 _ = imagingMediator.PrepareImage(imageData, imageParams, token);
             }
 
@@ -391,7 +419,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 var renderedImage = await prepareTask;
                 var statistics = await renderedImage.RawImageData.Statistics;
 
-                if ((!FilterOnHfr && !FilterOnStars) || ExposureCount == 1 || ExposureCount == TotalExposureCount ||
+                if ((!FilterOnHfr && !FilterOnStars) || luckyImageId == 1 || luckyImageId == TotalExposureCount ||
                     (FilterOnHfr && !FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr) ||
                     (FilterOnStars && !FilterOnHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars) ||
                     (FilterOnHfr && FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars)) {
@@ -410,6 +438,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
                 string tempPath = await imageData.PrepareSave(fileSaveInfo);
                 var path = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
+                Logger.Debug(path);
                 imageSaveMediator.OnImageSaved(
                     new ImageSavedEventArgs() {
                         MetaData = imageData.MetaData,

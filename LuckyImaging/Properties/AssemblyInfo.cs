@@ -7,8 +7,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.0.2.5")]
-[assembly: AssemblyFileVersion("1.0.2.5")]
+[assembly: AssemblyVersion("1.0.2.6")]
+[assembly: AssemblyFileVersion("1.0.2.6")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("LuckyImaging")]
@@ -66,7 +66,8 @@ I have added a 'process images' button. If your imaging pc is up to it, you can 
 You can also choose to discard images based on the Hfr being to high or starcount being to low.
 To increase the speed as much as possible, turn the process images off and the lucky images won't show up in the history and will not trigger any autofocus or center after drift triggers, because they are not processed like normal images.
 It will then only show every nth image in the image viewer, you can set it in the options. Depending on your imaging-pc you can set this higher or lower.
-Please take a 'normal' image every once in a while to be able to use those triggers.
+Please take a 'normal' image every once in a while to be able to use those triggers.  
+Another button I added is Save to Memory. This will save all the requested images to memory first and save them all to disk at the end. Please use with care, because it could cause Nina to crash if you don't have enough memory for it. I have tried to add a safeguard, but it doesn't work very well yet.
 
 The 'Calculate Roi Position' can be used to center the ROI on your target. It will platesolve the full image and after a successful platesolve it will center the ROI on to the target by updating the x,y coordinates in the 'Lucky Target Container'.
 The full image will also be saved and processed as a 'normal' image, so if the platesolve fails, you'll have an image to find out why.
