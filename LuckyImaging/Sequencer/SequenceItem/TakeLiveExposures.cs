@@ -293,6 +293,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             ExposureCount = 1;
             LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
             luckyContainer.LuckyRun++;
+            options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
+                Value = $"{luckyContainer.LuckyRun}"
+            });
             var capture = new CaptureSequence() {
                 ExposureTime = ExposureTime,
                 Binning = Binning,
@@ -308,19 +311,21 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
 
             _frames = new List<Frame>();
-            List<Task> tasks = new List<Task>();
+            List<Task> _tasks = new List<Task>();
 
-            bool discardedFirstImage = false;
+            bool _firstImage = true;
             var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
             Stopwatch seqDuration = Stopwatch.StartNew();
             await liveViewEnumerable.ForEachAsync(exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
                     var exposureEnd = DateTime.Now; // first thing is to get the endTime
-                    if (!discardedFirstImage) {
-                        discardedFirstImage = true;
+                    if (_firstImage) {
+                        _firstImage = false;
                         seqDuration = Stopwatch.StartNew();
-                        return;
+                        if (ExposureTime < 1d)
+                            // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
+                            return;
                     }
                     // check memory
                     double availableMemoryMb = luckyimaging.MinimumAvailableMemory;
@@ -342,22 +347,27 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         }
                         // Create tasks without starting them
                         int id = ExposureCount;
+                        int luckyRun = luckyContainer.LuckyRun;
                         if (SaveToMemory) {
-                            tasks.Add(new Task(() => ProcessExposureData(exposureData, exposureEnd, luckyContainer.LuckyRun, id, progress, token)));
+                            _tasks.Add(new Task(() => ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token)));
                         } else {
-                            _ = ProcessExposureData(exposureData, exposureEnd, luckyContainer.LuckyRun, id, progress, token);
+                            _ = ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token);
                         }
 
                         if (ExposureCount >= TotalExposureCount) {
                             double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
                             Logger.Info("Captured " + ExposureCount + " times " + ExposureTime + "s live images in " + seqDuration.ElapsedMilliseconds + " ms. : " + Math.Round(fps, 2) + " fps");
+                            try {
+                                // Log dropped frames for zwo cameras
+                                Logger.Debug("Dropped frames: " + cameraMediator.Action("GetDroppedFrames", ""));
+                            } catch (Exception) { /*do nothing*/ }
                             localCTS.Cancel();
                         } else { ExposureCount++; }
                     }
                 }
             });
             // Start all tasks
-            foreach (var task in tasks) {
+            foreach (var task in _tasks) {
                 task.Start();
             }
 
@@ -379,7 +389,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             }
 
             // Wait for all tasks to complete
-            Task.WhenAll(tasks).Wait();
+            Task.WhenAll(_tasks).Wait();
         }
 
         private async Task ProcessExposureData(IExposureData exposureData, DateTime exposureEnd, int luckyRun, int luckyImageId, IProgress<ApplicationStatus> progress, CancellationToken token) {
@@ -405,9 +415,6 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-END", AstroUtil.GetJulianDate(exposureEnd), "Julian exposure end date"));
 
             imageData.MetaData.GenericHeaders.Add(new IntMetaDataHeader("LUCKYRUN", luckyRun, "Current lucky imaging run for the target"));
-            options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
-                Value = $"{luckyRun}"
-            });
 
             // Only show first and last image in Imaging window
             if (!ProcessImages && (luckyImageId == 1 || luckyImageId % luckyimaging.ShowEveryNthImage == 0 || luckyImageId == TotalExposureCount)) {
