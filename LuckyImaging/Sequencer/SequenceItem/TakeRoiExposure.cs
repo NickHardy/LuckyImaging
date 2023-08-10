@@ -276,6 +276,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 metaData.Target.Name = target.DeepSkyObject.NameAsAscii;
                 metaData.Target.Coordinates = target.InputCoordinates.Coordinates;
                 metaData.Target.Rotation = target.Rotation;
+                metaData.GenericHeaders.Add(new StringMetaDataHeader("TARGETID", target.DeepSkyObject?.Id));
             }
 
             metaData.Image.ImageType = ImageType;

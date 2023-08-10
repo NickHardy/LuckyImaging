@@ -342,7 +342,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     } else {
                         if (luckyimaging.SaveStatsToCsv) {
                             var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
-                            var exposureMid = ((DateTimeMetaDataHeader)exposureData.MetaData.GenericHeaders.FirstOrDefault())?.Value ?? exposureStart;
+                            var exposureMid = ((DateTimeMetaDataHeader)exposureData.MetaData.GenericHeaders.FirstOrDefault(x => x.Key == "DATE_MID"))?.Value ?? exposureEnd.AddSeconds(-ExposureTime / 2);
                             _frames.Add(new Frame(ExposureCount, exposureStart, exposureMid));
                         }
                         // Create tasks without starting them
@@ -473,6 +473,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 metaData.Target.Name = target.DeepSkyObject.NameAsAscii;
                 metaData.Target.Coordinates = target.InputCoordinates.Coordinates;
                 metaData.Target.Rotation = target.Rotation;
+                metaData.GenericHeaders.Add(new StringMetaDataHeader("TARGETID", target.DeepSkyObject?.Id));
             }
 
             metaData.Image.ImageType = ImageType;
