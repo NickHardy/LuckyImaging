@@ -18,11 +18,15 @@ using NINA.Profile.Interfaces;
 using NINA.Sequencer.Validations;
 using NINA.Core.Utility;
 using NINA.Equipment.Interfaces.Mediator;
+using NINA.ViewModel.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
 using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NINA.WPF.Base.Interfaces.Mediator;
@@ -42,7 +46,9 @@ using NINA.Equipment.Equipment.MyFocuser;
 using NINA.Equipment.Equipment.MyRotator;
 using NINA.Equipment.Equipment.MyTelescope;
 using NINA.Equipment.Equipment.MyWeatherData;
+using NINA.WPF.Base.Mediator;
 using NINA.Equipment.Equipment.MyFilterWheel;
+using System.Reflection;
 
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
@@ -171,6 +177,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         [JsonProperty]
         public int ExposureCount { get => exposureCount; set { exposureCount = value; RaisePropertyChanged(); } }
 
+        private bool processImages;
+
+        [JsonProperty]
+        public bool ProcessImages { get => processImages; set { processImages = value; RaisePropertyChanged(); } }
+
+
         private CameraInfo cameraInfo;
 
         public CameraInfo CameraInfo {
@@ -225,7 +237,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             };
 
             var imageParams = new PrepareImageParameters(null, false);
-            if (IsLightSequence()) {
+            if (IsLightSequence() && ProcessImages) {
                 imageParams = new PrepareImageParameters(true, true);
             }
 
@@ -263,8 +275,11 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             if (target != null) {
                 metaData.Target.Name = target.DeepSkyObject.NameAsAscii;
                 metaData.Target.Coordinates = target.InputCoordinates.Coordinates;
-                metaData.Target.Rotation = target.PositionAngle;
+                metaData.Target.PositionAngle = target.PositionAngle;
+                metaData.GenericHeaders.Add(new StringMetaDataHeader("TARGETID", target.DeepSkyObject?.Id));
             }
+
+            metaData.Image.ImageType = ImageType;
 
             // Fill all available info from profile
             metaData.FromProfile(profileService.ActiveProfile);
@@ -277,6 +292,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             if (metaData.Target.Coordinates == null || double.IsNaN(metaData.Target.Coordinates.RA))
                 metaData.Target.Coordinates = metaData.Telescope.Coordinates;
+
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            metaData.GenericHeaders.Add(new StringMetaDataHeader("PLCREATE", "LuckyImaging-" + assembly.GetName().Version.ToString(), "The plugin used to create this file."));
 
             metaData.GenericHeaders.Add(new StringMetaDataHeader("CAMERA", CameraInfo.Name));
 

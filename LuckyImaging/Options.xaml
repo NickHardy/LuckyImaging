@@ -8,13 +8,31 @@
     <DataTemplate x:Key="LuckyImaging_Options">
         <StackPanel Orientation="Vertical">
             <StackPanel Orientation="Horizontal">
-                <TextBlock VerticalAlignment="Center" Text="Show every Nth Image" />
+                <TextBlock Width="160" VerticalAlignment="Center" Text="Show every Nth Image" />
                 <TextBox
                 MinWidth="100"
                 Margin="5,0,0,0"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 Text="{Binding ShowEveryNthImage}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Width="160" VerticalAlignment="Center" Text="Minimum available memory" />
+                <TextBox
+                MinWidth="100"
+                Margin="5,0,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Text="{Binding MinimumAvailableMemory}" />
+                <TextBlock VerticalAlignment="Center" Text="Mb (0 = no check)" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Width="160" VerticalAlignment="Center" Text="Save times to csv" />
+                <CheckBox
+                    MinWidth="80"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    IsChecked="{Binding SaveStatsToCsv}" />
             </StackPanel>
         </StackPanel>
     </DataTemplate>

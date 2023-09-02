@@ -254,6 +254,21 @@
 
                         <TextBlock
                             VerticalAlignment="Center"
+                            Text="Save to memory" />
+                        <CheckBox
+                            Width="80"
+                            HorizontalAlignment="Right"
+                            IsChecked="{Binding SaveToMemory}">
+                        </CheckBox>
+
+                        <TextBlock
+                        Margin="7.5,0,7.5,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="|" />
+
+                        <TextBlock
+                            VerticalAlignment="Center"
                             Text="Process images" />
                         <CheckBox
                             Width="80"
