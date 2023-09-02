@@ -185,8 +185,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 if (ImageFlippedY) { targetPoint.Y = height - targetPoint.Y; }
 
                 // Place the Roi around the star but within the image.
-                luckyContainer.X = Math.Min(Math.Max(Math.Round(targetPoint.X - (luckyContainer.Width / 2), 0), 0), image.Image.PixelWidth - (luckyContainer.Width / 2));
-                luckyContainer.Y = Math.Min(Math.Max(Math.Round(targetPoint.Y - (luckyContainer.Height / 2), 0), 0), image.Image.PixelHeight - (luckyContainer.Height / 2));
+                luckyContainer.X = Math.Min(Math.Max(Math.Round(targetPoint.X * profileService.ActiveProfile.PlateSolveSettings.Binning - (luckyContainer.Width / 2), 0), 0), image.Image.PixelWidth * profileService.ActiveProfile.PlateSolveSettings.Binning - (luckyContainer.Width / 2));
+                luckyContainer.Y = Math.Min(Math.Max(Math.Round(targetPoint.Y * profileService.ActiveProfile.PlateSolveSettings.Binning - (luckyContainer.Height / 2), 0), 0), image.Image.PixelHeight * profileService.ActiveProfile.PlateSolveSettings.Binning - (luckyContainer.Height / 2));
                 Logger.Debug("Setting roi position to " + luckyContainer.X + "x" + luckyContainer.Y);
             }
 
