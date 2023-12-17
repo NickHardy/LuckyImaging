@@ -63,7 +63,7 @@ using System.Reflection;
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
     [ExportMetadata("Name", "Take Video Roi Exposures")]
-    [ExportMetadata("Description", "Currently only QHY, ZWO and Touptek are supported for video imaging.")]
+    [ExportMetadata("Description", "Currently only QHY, ZWO, PlayerOne and Touptek are supported for video imaging.")]
     [ExportMetadata("Icon", "CameraSVG")]
     [ExportMetadata("Category", "LuckyImaging")]
     [Export(typeof(ISequenceItem))]
@@ -439,21 +439,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 });
                 FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
                 string tempPath = await imageData.PrepareSave(fileSaveInfo);
-                var path = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
-                Logger.Debug(path);
-                imageSaveMediator.OnImageSaved(
-                    new ImageSavedEventArgs() {
-                        MetaData = imageData.MetaData,
-                        PathToImage = new Uri(path),
-                        Image = _BlackImage,
-                        FileType = profileService.ActiveProfile.ImageFileSettings.FileType,
-                        Statistics = null,
-                        StarDetectionAnalysis = null,
-                        Duration = ExposureTime,
-                        IsBayered = false,
-                        Filter = imageData.MetaData.FilterWheel.Filter
-                    }
-                );
+                imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
             }
 
             return;

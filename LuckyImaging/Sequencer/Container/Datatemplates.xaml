@@ -511,13 +511,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="X">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.XSize}" Minimum="0" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
@@ -527,13 +520,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="Y">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.YSize}" Minimum="0" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
@@ -544,13 +530,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="Width">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.XSize}" Minimum="10" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
@@ -560,13 +539,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="Height">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.YSize}" Minimum="10" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
