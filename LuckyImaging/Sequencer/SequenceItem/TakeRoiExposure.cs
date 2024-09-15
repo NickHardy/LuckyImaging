@@ -82,6 +82,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             Gain = -1;
             Offset = -1;
             ImageType = CaptureSequence.ImageTypes.LIGHT;
+            ProcessImages = true;
             this.cameraMediator = cameraMediator;
             this.imagingMediator = imagingMediator;
             this.imageSaveMediator = imageSaveMediator;
@@ -121,7 +122,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 Binning = Binning,
                 Gain = Gain,
                 Offset = Offset,
-                ImageType = ImageType
+                ImageType = ImageType,
+                ProcessImages = ProcessImages
             };
 
             if (clone.Binning == null) {
