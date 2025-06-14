@@ -119,7 +119,7 @@ namespace NINA.Luckyimaging.Sequencer.Container {
                         this.Name = dropTarget.TargetName;
                         this.Target.TargetName = dropTarget.TargetName;
                         this.Target.InputCoordinates = dropTarget.InputCoordinates.Clone();
-                        this.Target.Rotation = dropTarget.Rotation;
+                        this.Target.PositionAngle = dropTarget.PositionAngle;
                     }
                 }
             }
@@ -238,9 +238,9 @@ namespace NINA.Luckyimaging.Sequencer.Container {
                 Target = new InputTarget(Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Latitude), Angle.ByDegree(profileService.ActiveProfile.AstrometrySettings.Longitude), profileService.ActiveProfile.AstrometrySettings.Horizon),
             };
 
-            clone.Target.TargetName = Target.TargetName;
-            clone.Target.InputCoordinates.Coordinates = Target.InputCoordinates.Coordinates.Transform(Epoch.J2000);
-            clone.Target.Rotation = Target.Rotation;
+            clone.Target.TargetName = this.Target.TargetName;
+            clone.Target.InputCoordinates.Coordinates = this.Target.InputCoordinates.Coordinates.Transform(Epoch.J2000);
+            clone.Target.PositionAngle = this.Target.PositionAngle;
 
             clone.EnableSubSample = EnableSubSample;
             clone.SubSampleRectangle.X = SubSampleRectangle.X;
@@ -271,7 +271,7 @@ namespace NINA.Luckyimaging.Sequencer.Container {
         private async Task<bool> CoordsToFraming() {
             if (Target.DeepSkyObject?.Coordinates != null) {
                 var dso = new DeepSkyObject(Target.DeepSkyObject.Name, Target.DeepSkyObject.Coordinates, profileService.ActiveProfile.ApplicationSettings.SkyAtlasImageRepository, profileService.ActiveProfile.AstrometrySettings.Horizon);
-                dso.Rotation = Target.Rotation;
+                dso.Rotation = Target.PositionAngle;
                 applicationMediator.ChangeTab(ApplicationTab.FRAMINGASSISTANT);
                 return await framingAssistantVM.SetCoordinates(dso);
             }
@@ -290,13 +290,13 @@ namespace NINA.Luckyimaging.Sequencer.Container {
                     Target.TargetName = resp.Name;
                     this.Name = resp.Name;
 
-                    Target.Rotation = 0;
+                    Target.PositionAngle = 0;
 
                     if (s.CanGetRotationAngle) {
                         double rotationAngle = await s.GetRotationAngle();
 
                         if (!double.IsNaN(rotationAngle)) {
-                            Target.Rotation = rotationAngle;
+                            Target.PositionAngle = rotationAngle;
                         }
                     }
 

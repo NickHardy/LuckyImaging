@@ -16,7 +16,7 @@
     xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
     xmlns:local="clr-namespace:NINA.Luckyimaging.Sequencer.Container"
     xmlns:mini="clr-namespace:NINA.View.Sequencer.MiniSequencer;assembly=NINA.Sequencer"
-    xmlns:ninactrl="clr-namespace:NINACustomControlLibrary;assembly=NINACustomControlLibrary"
+    xmlns:ninactrl="clr-namespace:NINA.CustomControlLibrary;assembly=NINA.CustomControlLibrary"
     xmlns:ns="clr-namespace:NINA.Core.Locale;assembly=NINA.Core"
     xmlns:rules="clr-namespace:NINA.Core.Utility.ValidationRules;assembly=NINA.Core"
     xmlns:util="clr-namespace:NINA.Core.Utility;assembly=NINA.Core"
@@ -189,7 +189,7 @@
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         Foreground="{StaticResource ButtonForegroundBrush}"
-                                        Text="{Binding Target.Rotation}" />
+                                        Text="{Binding Target.PositionAngle}" />
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         Foreground="{StaticResource ButtonForegroundBrush}"
@@ -511,13 +511,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="X">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.XSize}" Minimum="0" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
@@ -527,13 +520,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="Y">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.YSize}" Minimum="0" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
@@ -544,13 +530,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="Width">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.XSize}" Minimum="10" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>
@@ -560,13 +539,6 @@
                                         <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center">
                                             <TextBox.Text>
                                                 <Binding Mode="TwoWay" Path="Height">
-                                                    <Binding.ValidationRules>
-                                                        <rules:IntRangeRule>
-                                                            <rules:IntRangeRule.ValidRange>
-                                                                <rules:IntRangeChecker Maximum="{Binding Source={StaticResource CameraInfo}, Path=Data.YSize}" Minimum="10" />
-                                                            </rules:IntRangeRule.ValidRange>
-                                                        </rules:IntRangeRule>
-                                                    </Binding.ValidationRules>
                                                 </Binding>
                                             </TextBox.Text>
                                         </TextBox>

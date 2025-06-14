@@ -12,7 +12,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:NINA.Luckyimaging.Sequencer.SequenceItem"
     xmlns:mini="clr-namespace:NINA.View.Sequencer.MiniSequencer;assembly=NINA.Sequencer"
-    xmlns:ninactrl="clr-namespace:NINACustomControlLibrary;assembly=NINACustomControlLibrary"
+    xmlns:ninactrl="clr-namespace:NINA.CustomControlLibrary;assembly=NINA.CustomControlLibrary"
     xmlns:ns="clr-namespace:NINA.Core.Locale;assembly=NINA.Core"
     xmlns:util="clr-namespace:NINA.Core.Utility;assembly=NINA.Core"
     xmlns:rules="clr-namespace:NINA.Core.Utility.ValidationRules;assembly=NINA.Core"
@@ -345,6 +345,21 @@
                 <WrapPanel Orientation="Horizontal">
 
                     <ContentPresenter Content="{StaticResource TakeExposureDetails}" />
+
+                    <TextBlock
+                        Margin="7.5,0,7.5,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="|" />
+
+                    <TextBlock
+                            VerticalAlignment="Center"
+                            Text="Process images" />
+                    <CheckBox
+                            Width="80"
+                            HorizontalAlignment="Right"
+                            IsChecked="{Binding ProcessImages}">
+                    </CheckBox>
 
                 </WrapPanel>
             </view:SequenceBlockView.SequenceItemContent>

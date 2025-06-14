@@ -51,16 +51,11 @@ using NINA.Equipment.Equipment.MyWeatherData;
 using NINA.Equipment.Equipment.MyRotator;
 using NINA.Equipment.Equipment.MyFocuser;
 using NINA.Equipment.Utility;
-using nom.tam.fits;
-using System.Text.RegularExpressions;
-using System.Windows.Controls;
 using CsvHelper;
 using System.Globalization;
 using CsvHelper.Configuration;
-using Newtonsoft.Json.Linq;
 using NINA.Image.Interfaces;
 using System.Windows.Media.Imaging;
-using System.Windows.Media.Media3D;
 using System.Windows.Media;
 using System.Windows;
 using System.Reflection;
@@ -68,7 +63,7 @@ using System.Reflection;
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
     [ExportMetadata("Name", "Take Video Roi Exposures")]
-    [ExportMetadata("Description", "Currently only QHY, ZWO and Touptek are supported for video imaging.")]
+    [ExportMetadata("Description", "Currently only QHY, ZWO, PlayerOne and Touptek are supported for video imaging.")]
     [ExportMetadata("Icon", "CameraSVG")]
     [ExportMetadata("Category", "LuckyImaging")]
     [Export(typeof(ISequenceItem))]
@@ -444,21 +439,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 });
                 FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
                 string tempPath = await imageData.PrepareSave(fileSaveInfo);
-                var path = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
-                Logger.Debug(path);
-                imageSaveMediator.OnImageSaved(
-                    new ImageSavedEventArgs() {
-                        MetaData = imageData.MetaData,
-                        PathToImage = new Uri(path),
-                        Image = _BlackImage,
-                        FileType = profileService.ActiveProfile.ImageFileSettings.FileType,
-                        Statistics = null,
-                        StarDetectionAnalysis = null,
-                        Duration = ExposureTime,
-                        IsBayered = false,
-                        Filter = imageData.MetaData.FilterWheel.Filter
-                    }
-                );
+                imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
             }
 
             return;
@@ -472,7 +453,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             if (target != null) {
                 metaData.Target.Name = target.DeepSkyObject.NameAsAscii;
                 metaData.Target.Coordinates = target.InputCoordinates.Coordinates;
-                metaData.Target.Rotation = target.Rotation;
+                metaData.Target.Rotation = target.PositionAngle;
                 metaData.GenericHeaders.Add(new StringMetaDataHeader("TARGETID", target.DeepSkyObject?.Id));
             }
 
