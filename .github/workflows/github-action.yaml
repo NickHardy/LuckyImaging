@@ -18,7 +18,7 @@ env:
   PLUGIN_NAME: "LuckyImaging"
   PLUGIN_SLN_NAME: "LuckyImaging"
   PLUGIN_DLL_NAME: "NINA.Luckyimaging"
-  PLUGIN_MANIFEST_PATH: "l\LuckyImaging"
+  PLUGIN_MANIFEST_PATH: "l/LuckyImaging"
 
 jobs:
   build-and-release:
@@ -51,8 +51,8 @@ jobs:
       # Add all necessary files that the plugin needs to the packages folder - basically all items that are normally in your post build event on your local builds
       - name: Prepare package
         run: |
-          Copy-Item "LuckyImaging/bin/Release/net8.0-windows8.0/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
-          Copy-Item "LuckyImaging/bin/Release/net8.0-windows8.0/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
+          Copy-Item "LuckyImaging/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
+          Copy-Item "LuckyImaging/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
       - name: Create Plugin archives and manifests
         run: |
           curl -LO https://raw.githubusercontent.com/isbeorn/nina.plugin.manifests/refs/heads/main/tools/CreateManifest.ps1?raw=true
