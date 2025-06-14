@@ -18,7 +18,7 @@ env:
   PLUGIN_NAME: "LuckyImaging"
   PLUGIN_SLN_NAME: "LuckyImaging"
   PLUGIN_DLL_NAME: "NINA.Luckyimaging"
-  PLUGIN_MANIFEST_PATH: "l/LuckyImaging/3.0.0"
+  PLUGIN_MANIFEST_PATH: "l\LuckyImaging"
 
 jobs:
   build-and-release:
@@ -83,6 +83,7 @@ jobs:
 
       - name: Copy manifest file
         run: |
+          mkdir ./nina.plugin.manifests/manifests/${{ env.PLUGIN_MANIFEST_PATH }}
           cp ./${{ env.PLUGIN_DLL_NAME }}.${{ github.ref_name }}.manifest.json ./nina.plugin.manifests/manifests/${{ env.PLUGIN_MANIFEST_PATH }}
           cd nina.plugin.manifests
           git add .
