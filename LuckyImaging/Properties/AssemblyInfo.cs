@@ -7,20 +7,20 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("2.0.3.1")]
-[assembly: AssemblyFileVersion("2.0.3.1")]
+//[assembly: AssemblyVersion("2.0.3.1")]
+//[assembly: AssemblyFileVersion("2.0.3.1")]
 
 // [MANDATORY] The name of your plugin
-[assembly: AssemblyTitle("LuckyImaging")]
+//[assembly: AssemblyTitle("LuckyImaging")]
 // [MANDATORY] A short description of your plugin
 [assembly: AssemblyDescription("Plugin for lucky imaging")]
 
 // The following attributes are not required for the plugin per se, but are required by the official manifest meta data
 
 // Your name
-[assembly: AssemblyCompany("Nick Hardy")]
+//[assembly: AssemblyCompany("Nick Hardy")]
 // The product name that this plugin is part of
-[assembly: AssemblyProduct("LuckyImaging")]
+//[assembly: AssemblyProduct("LuckyImaging")]
 [assembly: AssemblyCopyright("Copyright © 2022 Nick Hardy")]
 
 // The minimum Version of N.I.N.A. that this plugin is compatible with
@@ -31,7 +31,7 @@ using System.Runtime.InteropServices;
 // The url to the license
 [assembly: AssemblyMetadata("LicenseURL", "https://www.mozilla.org/en-US/MPL/2.0/")]
 // The repository where your pluggin is hosted
-[assembly: AssemblyMetadata("Repository", "https://bitbucket.org/NickHardy/luckyimaging/src/main/")]
+[assembly: AssemblyMetadata("Repository", "https://github.com/NickHardy/LuckyImaging")]
 
 // The following attributes are optional for the official manifest meta data
 
@@ -42,12 +42,12 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyMetadata("Tags", "Lucky Imaging")]
 
 //[Optional] A link that will show a log of all changes in between your plugin's versions
-[assembly: AssemblyMetadata("ChangelogURL", "https://bitbucket.org/NickHardy/luckyimaging/commits/")]
+[assembly: AssemblyMetadata("ChangelogURL", "https://github.com/NickHardy/LuckyImaging/commits/main/")]
 
 //[Optional] The url to a featured logo that will be displayed in the plugin list next to the name
 [assembly: AssemblyMetadata("FeaturedImageURL", "")]
 //[Optional] A url to an example screenshot of your plugin in action
-[assembly: AssemblyMetadata("ScreenshotURL", "https://bitbucket.org/NickHardy/luckyimaging/downloads/LuckyImagingExample.png")]
+[assembly: AssemblyMetadata("ScreenshotURL", "https://github.com/NickHardy/LuckyImaging/blob/main/LuckyImaging/Resources/LuckyImagingExample.png")]
 //[Optional] An additional url to an example example screenshot of your plugin in action
 [assembly: AssemblyMetadata("AltScreenshotURL", "")]
 //[Optional] An in-depth description of your plugin
@@ -88,7 +88,7 @@ If you would like to buy me a whisky: [click here](https://www.paypal.com/paypal
 // COM, set the ComVisible attribute to true on that type.
 [assembly: ComVisible(false)]
 // [Unused]
-[assembly: AssemblyConfiguration("")]
+//[assembly: AssemblyConfiguration("")]
 // [Unused]
 [assembly: AssemblyTrademark("")]
 // [Unused]
