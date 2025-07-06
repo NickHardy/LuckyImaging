@@ -12,55 +12,55 @@
 
 #endregion "copyright"
 
+using CommunityToolkit.Mvvm.ComponentModel;
+using CsvHelper;
+using CsvHelper.Configuration;
+using Dasync.Collections;
 using Newtonsoft.Json;
+using NINA.Astrometry;
+using NINA.Core.Locale;
 using NINA.Core.Model;
+using NINA.Core.Model.Equipment;
+using NINA.Core.Utility;
+using NINA.Equipment.Equipment.MyCamera;
+using NINA.Equipment.Equipment.MyFilterWheel;
+using NINA.Equipment.Equipment.MyFocuser;
+using NINA.Equipment.Equipment.MyRotator;
+using NINA.Equipment.Equipment.MyTelescope;
+using NINA.Equipment.Equipment.MyWeatherData;
+using NINA.Equipment.Interfaces.Mediator;
+using NINA.Equipment.Model;
+using NINA.Equipment.Utility;
+using NINA.Image.FileFormat;
+using NINA.Image.ImageData;
+using NINA.Image.Interfaces;
+using NINA.Luckyimaging.Sequencer.Container;
+using NINA.Luckyimaging.Sequencer.Utility;
 using NINA.Profile.Interfaces;
 using NINA.Sequencer.Container;
+using NINA.Sequencer.Interfaces;
+using NINA.Sequencer.SequenceItem;
 using NINA.Sequencer.Validations;
-using NINA.Core.Utility;
-using NINA.Equipment.Interfaces.Mediator;
-using NINA.ViewModel.Interfaces;
+using NINA.WPF.Base.Interfaces.Mediator;
+using NINA.WPF.Base.Interfaces.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.ComponentModel.Composition;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using NINA.WPF.Base.Interfaces.Mediator;
-using NINA.Core.Model.Equipment;
-using NINA.Core.Locale;
-using NINA.Equipment.Model;
-using NINA.Astrometry;
-using NINA.Equipment.Equipment.MyCamera;
-using NINA.WPF.Base.Interfaces.ViewModel;
-using NINA.Sequencer.Interfaces;
-using Dasync.Collections;
-using System.Diagnostics;
-using NINA.Image.FileFormat;
-using NINA.Sequencer.SequenceItem;
-using NINA.Luckyimaging.Sequencer.Utility;
-using NINA.Image.ImageData;
-using NINA.Luckyimaging.Sequencer.Container;
-using NINA.Equipment.Equipment.MyFilterWheel;
-using NINA.Equipment.Equipment.MyTelescope;
-using NINA.Equipment.Equipment.MyWeatherData;
-using NINA.Equipment.Equipment.MyRotator;
-using NINA.Equipment.Equipment.MyFocuser;
-using NINA.Equipment.Utility;
-using CsvHelper;
-using System.Globalization;
-using CsvHelper.Configuration;
-using NINA.Image.Interfaces;
-using System.Windows.Media.Imaging;
-using System.Windows.Media;
 using System.Windows;
-using System.Reflection;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
+
 
     [ExportMetadata("Name", "Take Video Roi Exposures")]
     [ExportMetadata("Description", "Currently only QHY, ZWO, PlayerOne and Touptek are supported for video imaging.")]
@@ -68,7 +68,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
     [ExportMetadata("Category", "LuckyImaging")]
     [Export(typeof(ISequenceItem))]
     [JsonObject(MemberSerialization.OptIn)]
-    public class TakeLiveExposures : NINA.Sequencer.SequenceItem.SequenceItem, IExposureItem, IValidatable, ICameraConsumer, ITelescopeConsumer, IFilterWheelConsumer, IFocuserConsumer, IRotatorConsumer, IWeatherDataConsumer {
+    public partial class TakeLiveExposures : NINA.Sequencer.SequenceItem.SequenceItem, IExposureItem, IValidatable, ICameraConsumer, ITelescopeConsumer, IFilterWheelConsumer, IFocuserConsumer, IRotatorConsumer, IWeatherDataConsumer {
         private ICameraMediator cameraMediator;
         private IImagingMediator imagingMediator;
         private IImageSaveMediator imageSaveMediator;
@@ -119,6 +119,11 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             this.options = options;
             luckyimaging = new Luckyimaging(profileService, this.options, imageSaveMediator);
             _BlackImage = BlackImage();
+
+            EnableSubSample = true;
+            SubSampleRectangle = new ObservableRectangle(0, 0, 1024, 1024);
+
+            SaveAsType = "FITS";
         }
 
         private TakeLiveExposures(TakeLiveExposures cloneMe) : this(cloneMe.profileService, cloneMe.cameraMediator, cloneMe.imagingMediator, cloneMe.imageSaveMediator, cloneMe.imageHistoryVM, cloneMe.filterWheelMediator, cloneMe.options, cloneMe.telescopeMediator, cloneMe.focuserMediator, cloneMe.rotatorMediator, cloneMe.weatherDataMediator) {
@@ -145,6 +150,14 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             if (clone.Binning == null) {
                 clone.Binning = new BinningMode(1, 1);
             }
+
+            clone.EnableSubSample = EnableSubSample;
+            clone.SubSampleRectangle.X = SubSampleRectangle.X;
+            clone.SubSampleRectangle.Y = SubSampleRectangle.Y;
+            clone.SubSampleRectangle.Width = SubSampleRectangle.Width;
+            clone.SubSampleRectangle.Height = SubSampleRectangle.Height;
+
+            clone.SaveAsType = SaveAsType;
 
             return clone;
         }
@@ -261,6 +274,50 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             }
         }
 
+        [ObservableProperty, JsonProperty]
+        private bool notInContainer;
+
+        [ObservableProperty, JsonProperty]
+        private bool enableSubSample;
+
+        [ObservableProperty, JsonProperty]
+        private ObservableRectangle subSampleRectangle;
+
+        public double X {
+            get => SubSampleRectangle.X;
+            set {
+                SubSampleRectangle.X = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        public double Y {
+            get => SubSampleRectangle.Y;
+            set {
+                SubSampleRectangle.Y = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        public double Width {
+            get => SubSampleRectangle.Width;
+            set {
+                SubSampleRectangle.Width = value;
+                RaiseAllPropertiesChanged();
+            }
+        }
+
+        public double Height {
+            get => SubSampleRectangle.Height;
+            set {
+                SubSampleRectangle.Height = value;
+                RaiseAllPropertiesChanged();
+            }
+        }
+
+        [ObservableProperty, JsonProperty]
+        private string saveAsType;
+
         public class Frame {
             public int FrameNumber { get; set; }
             public string DateObs { get; set; }
@@ -285,11 +342,31 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         private List<Frame> _frames;
 
         public override async Task Execute(IProgress<ApplicationStatus> progress, CancellationToken token) {
+            switch (SaveAsType) {
+                case "FITS":
+                    await ExecuteFits(progress, token); 
+                    break;
+                case "SER":
+                    await ExecuteSer(progress, token);
+                    break;
+                case "FITSCUBE":
+                    await ExecuteFitscube(progress, token);
+                    break;
+
+            }
+        }
+
+        public async Task ExecuteFits(IProgress<ApplicationStatus> progress, CancellationToken token) {
             ExposureCount = 1;
             LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
-            luckyContainer.LuckyRun++;
+            var luckyRun = 1;
+            if (luckyContainer != null) {
+                luckyContainer.LuckyRun++;
+                luckyRun = luckyContainer.LuckyRun;
+                EnableSubSample = luckyContainer.EnableSubSample;
+            }
             options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
-                Value = $"{luckyContainer.LuckyRun}"
+                Value = $"{luckyRun}"
             });
             var capture = new CaptureSequence() {
                 ExposureTime = ExposureTime,
@@ -299,8 +376,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 ImageType = ImageType,
                 ProgressExposureCount = ExposureCount,
                 TotalExposureCount = TotalExposureCount,
-                EnableSubSample = luckyContainer.EnableSubSample,
-                SubSambleRectangle = ItemUtility.RetrieveLuckyTargetRoi(Parent),
+                EnableSubSample = EnableSubSample,
+                SubSambleRectangle = RetrieveLuckyTargetRoi(Parent),
             };
 
             var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -342,7 +419,6 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         }
                         // Create tasks without starting them
                         int id = ExposureCount;
-                        int luckyRun = luckyContainer.LuckyRun;
                         if (SaveToMemory) {
                             _tasks.Add(new Task(() => ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token)));
                         } else {
@@ -367,10 +443,10 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             }
 
             // wait till camera reconnects. Specifically for QHY camera's
-            Thread.Sleep(100);
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
             while (!cameraInfo.Connected) {
                 token.ThrowIfCancellationRequested();
-                Thread.Sleep(100);
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
             }
 
             if (luckyimaging.SaveStatsToCsv) {
@@ -385,10 +461,198 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             // Wait for all tasks to complete
             Task.WhenAll(_tasks).Wait();
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
         }
 
-        private async Task ProcessExposureData(IExposureData exposureData, DateTime exposureEnd, int luckyRun, int luckyImageId, IProgress<ApplicationStatus> progress, CancellationToken token) {
+        public async Task ExecuteSer(IProgress<ApplicationStatus> progress, CancellationToken token) {
+            ExposureCount = 1;
             LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
+            var luckyRun = 1;
+            if (luckyContainer != null) {
+                luckyContainer.LuckyRun++;
+                luckyRun = luckyContainer.LuckyRun;
+                EnableSubSample = luckyContainer.EnableSubSample;
+            }
+            options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
+                Value = $"{luckyRun}"
+            });
+            var target = RetrieveTarget(Parent);
+
+            var capture = new CaptureSequence() {
+                ExposureTime = ExposureTime,
+                Binning = Binning,
+                Gain = Gain,
+                Offset = Offset,
+                ImageType = ImageType,
+                ProgressExposureCount = ExposureCount,
+                TotalExposureCount = TotalExposureCount,
+                EnableSubSample = EnableSubSample,
+                SubSambleRectangle = RetrieveLuckyTargetRoi(Parent),
+            };
+
+            var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            _frames = new List<Frame>();
+            List<Task> _tasks = new List<Task>();
+
+            bool _firstImage = true;
+            SerWriter ser = null;
+
+            var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
+            Stopwatch seqDuration = Stopwatch.StartNew();
+            await liveViewEnumerable.ForEachAsync(async exposureData => {
+                token.ThrowIfCancellationRequested();
+                if (exposureData != null) {
+                    if (_firstImage) {
+                        var saveSerPath = await ProcessExposureData(exposureData, DateTime.Now, luckyRun, 1, progress, token);
+                        var imageData = await exposureData.ToImageData(progress, token);
+                        File.Delete(saveSerPath);
+                        saveSerPath = saveSerPath.Replace(".fits", ".ser");
+
+                        ser = new SerWriter(saveSerPath, imageData.Properties.Width, imageData.Properties.Height);
+
+                        _firstImage = false;
+                        seqDuration = Stopwatch.StartNew();
+                        if (ExposureTime < 1d)
+                            // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
+                            return;
+                    }
+
+                    var _task = new Task(async () => {
+                        int id = ExposureCount;
+                        int total = TotalExposureCount;
+                        var imageData = await exposureData.ToImageData(progress, token);
+                        // Only show first, last and nth image in Imaging window
+                        if (id == 1 || id % luckyimaging.ShowEveryNthImage == 0 || id == total) {
+                            var imageParams = new PrepareImageParameters(null, false);
+                            _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                        }
+                        ser.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
+                    });
+                    _task.Start();
+                    _tasks.Add(_task);
+
+                    if (ExposureCount >= TotalExposureCount) {
+                        double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
+                        Logger.Info("Captured " + ExposureCount + " times " + ExposureTime + "s live images in " + seqDuration.ElapsedMilliseconds + " ms. : " + Math.Round(fps, 2) + " fps");
+                        try {
+                            // Log dropped frames for zwo cameras
+                            Logger.Debug("Dropped frames: " + cameraMediator.Action("GetDroppedFrames", ""));
+                        } catch (Exception) { /*do nothing*/ }
+                        localCTS.Cancel();
+                    } else { ExposureCount++; }
+                }
+            });
+
+            // wait till camera reconnects. Specifically for QHY camera's
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            while (!cameraInfo.Connected) {
+                token.ThrowIfCancellationRequested();
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+            // Wait for all tasks to complete
+            Task.WaitAll(_tasks.ToArray());
+            ser.Close();
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+        }
+
+
+        public async Task ExecuteFitscube(IProgress<ApplicationStatus> progress, CancellationToken token) {
+            ExposureCount = 1;
+            var luckyRun = 1;
+            LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
+            if (luckyContainer != null) {
+                luckyContainer.LuckyRun++;
+                luckyRun = luckyContainer.LuckyRun;
+                EnableSubSample = luckyContainer.EnableSubSample;
+            }
+            options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
+                Value = $"{luckyRun}"
+            });
+            var target = RetrieveTarget(Parent);
+
+            var capture = new CaptureSequence() {
+                ExposureTime = ExposureTime,
+                Binning = Binning,
+                Gain = Gain,
+                Offset = Offset,
+                ImageType = ImageType,
+                ProgressExposureCount = ExposureCount,
+                TotalExposureCount = TotalExposureCount,
+                EnableSubSample = EnableSubSample,
+                SubSambleRectangle = RetrieveLuckyTargetRoi(Parent),
+            };
+
+            var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            _frames = new List<Frame>();
+            List<Task> _tasks = new List<Task>();
+
+            bool _firstImage = true;
+            FitsCubeWriter fcube = null;
+
+            var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
+            Stopwatch seqDuration = Stopwatch.StartNew();
+            await liveViewEnumerable.ForEachAsync(async exposureData => {
+                token.ThrowIfCancellationRequested();
+                if (exposureData != null) {
+                    if (_firstImage) {
+                        var saveFitsCubePath = await ProcessExposureData(exposureData, DateTime.Now, luckyRun, 1, progress, token);
+                        var imageData = await exposureData.ToImageData(progress, token);
+
+                        File.Delete(saveFitsCubePath);
+                        saveFitsCubePath = saveFitsCubePath.Replace(".fits", ".cube.fits");
+
+                        fcube = new FitsCubeWriter(saveFitsCubePath, imageData, TotalExposureCount);
+
+                        _firstImage = false;
+                        seqDuration = Stopwatch.StartNew();
+                        if (ExposureTime < 1d)
+                            // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
+                            return;
+                    }
+
+                    var _task = new Task(async () => {
+                        int id = ExposureCount;
+                        int total = TotalExposureCount;
+                        var imageData = await exposureData.ToImageData(progress, token);
+                        // Only show first, last and nth image in Imaging window
+                        if (id == 1 || id % luckyimaging.ShowEveryNthImage == 0 || id == total) {
+                            var imageParams = new PrepareImageParameters(null, false);
+                            _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                        }
+                        fcube.AddFrame(imageData.Data.FlatArray);
+                    });
+                    _task.Start();
+                    _tasks.Add(_task);
+
+                    if (ExposureCount >= TotalExposureCount) {
+                        double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
+                        Logger.Info("Captured " + ExposureCount + " times " + ExposureTime + "s live images in " + seqDuration.ElapsedMilliseconds + " ms. : " + Math.Round(fps, 2) + " fps");
+                        try {
+                            // Log dropped frames for zwo cameras
+                            Logger.Debug("Dropped frames: " + cameraMediator.Action("GetDroppedFrames", ""));
+                        } catch (Exception) { /*do nothing*/ }
+                        localCTS.Cancel();
+                    } else { ExposureCount++; }
+                }
+            });
+
+            // wait till camera reconnects. Specifically for QHY camera's
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            while (!cameraInfo.Connected) {
+                token.ThrowIfCancellationRequested();
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+            // Wait for all tasks to complete
+            Task.WaitAll(_tasks.ToArray());
+            fcube.Close();
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+        }
+
+
+        private async Task<string> ProcessExposureData(IExposureData exposureData, DateTime exposureEnd, int luckyRun, int luckyImageId, IProgress<ApplicationStatus> progress, CancellationToken token) {
+            var savePath = "";
             var target = RetrieveTarget(Parent);
 
             var imageParams = new PrepareImageParameters(null, false);
@@ -403,7 +667,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
             imageData.MetaData.Image.ExposureStart = exposureStart;
-            imageData.MetaData.Image.ExposureNumber = luckyImageId;
+            var id = imageHistoryVM.GetNextImageId();
+            imageData.MetaData.Image.Id = id;
+            imageData.MetaData.Image.ExposureNumber = id;
             imageData.MetaData.Image.ExposureTime = ExposureTime;
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-BEG", AstroUtil.GetJulianDate(exposureStart), "Julian exposure start date"));
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(exposureStart.AddSeconds(ExposureTime / 2)), "Julian exposure mid date"));
@@ -425,24 +691,29 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     (FilterOnHfr && !FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr) ||
                     (FilterOnStars && !FilterOnHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars) ||
                     (FilterOnHfr && FilterOnStars && imageData.StarDetectionAnalysis.HFR < FilterHfr && imageData.StarDetectionAnalysis.DetectedStars > FilterStars)) {
-                    AddMetaData(imageData.MetaData, target, ItemUtility.RetrieveLuckyTargetRoi(Parent));
-                    var id = imageHistoryVM.GetNextImageId();
-                    imageData.MetaData.Image.Id = id;
+                    AddMetaData(imageData.MetaData, target, RetrieveLuckyTargetRoi(Parent));
                     imageHistoryVM.Add(id, statistics, ImageType);
                     await imageSaveMediator.Enqueue(imageData, prepareTask, progress, token);
                 }
             } else {
-                AddMetaData(imageData.MetaData, target, ItemUtility.RetrieveLuckyTargetRoi(Parent));
+                AddMetaData(imageData.MetaData, target, RetrieveLuckyTargetRoi(Parent));
+                if (luckyImageId == 1 || luckyImageId == TotalExposureCount) {
+                    var prepareTask = imagingMediator.PrepareImage(imageData, imageParams, token);
+                    var renderedImage = await prepareTask;
+                    var statistics = await renderedImage.RawImageData.Statistics;
+                    imageHistoryVM.Add(id, statistics, ImageType);
+                }
+
                 List<ImagePattern> customPatterns = new List<ImagePattern>();
                 customPatterns.Add(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
                     Value = $"{luckyRun}"
                 });
                 FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
                 string tempPath = await imageData.PrepareSave(fileSaveInfo);
-                imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
+                savePath = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
             }
 
-            return;
+            return savePath;
         }
 
         private void AddMetaData(
@@ -453,7 +724,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             if (target != null) {
                 metaData.Target.Name = target.DeepSkyObject.NameAsAscii;
                 metaData.Target.Coordinates = target.InputCoordinates.Coordinates;
-                metaData.Target.Rotation = target.PositionAngle;
+                metaData.Target.PositionAngle = target.PositionAngle;
                 metaData.GenericHeaders.Add(new StringMetaDataHeader("TARGETID", target.DeepSkyObject?.Id));
             }
 
@@ -516,6 +787,10 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             }
         }
 
+        private ObservableRectangle RetrieveLuckyTargetRoi(ISequenceContainer parent) {
+            return NotInContainer ? SubSampleRectangle : ItemUtility.RetrieveLuckyTargetRoi(parent);
+        }
+
         public bool Validate() {
             var i = new List<string>();
             CameraInfo = this.cameraMediator.GetInfo();
@@ -529,9 +804,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     i.Add(string.Format(Loc.Instance["Lbl_SequenceItem_Imaging_TakeExposure_Validation_Offset"], CameraInfo.OffsetMin, CameraInfo.OffsetMax, Offset));
                 }
             }
-            if (ItemUtility.RetrieveLuckyContainer(Parent) == null) {
-                i.Add("This instruction only works within a LuckyTargetContainer.");
-            }
+            NotInContainer = ItemUtility.RetrieveLuckyContainer(Parent) == null;
 
             var fileSettings = profileService.ActiveProfile.ImageFileSettings;
 

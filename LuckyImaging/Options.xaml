@@ -26,14 +26,6 @@
                 Text="{Binding MinimumAvailableMemory}" />
                 <TextBlock VerticalAlignment="Center" Text="Mb (0 = no check)" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Width="160" VerticalAlignment="Center" Text="Save times to csv" />
-                <CheckBox
-                    MinWidth="80"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
-                    IsChecked="{Binding SaveStatsToCsv}" />
-            </StackPanel>
         </StackPanel>
     </DataTemplate>
 </ResourceDictionary>

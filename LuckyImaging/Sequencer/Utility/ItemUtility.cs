@@ -68,5 +68,18 @@ namespace NINA.Luckyimaging.Sequencer.Utility {
             }
         }
 
+        public static IDeepSkyObjectContainer RetrieveDeepSkyContainer(ISequenceContainer parent) {
+            if (parent != null) {
+                var container = parent as IDeepSkyObjectContainer;
+                if (container != null) {
+                    return container;
+                } else {
+                    return RetrieveDeepSkyContainer(parent.Parent);
+                }
+            } else {
+                return null;
+            }
+        }
+
     }
 }
