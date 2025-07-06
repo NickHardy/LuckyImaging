@@ -17,7 +17,7 @@ env:
   # Adjust this to your plugin title
   PLUGIN_NAME: "LuckyImaging"
   PLUGIN_SLN_NAME: "LuckyImaging"
-  PLUGIN_DLL_NAME: "LuckyImaging"
+  PLUGIN_DLL_NAME: "NINA.Luckyimaging"
   PLUGIN_MANIFEST_PATH: "l/LuckyImaging"
 
 jobs:
