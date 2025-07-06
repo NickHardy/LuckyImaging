@@ -5,7 +5,7 @@
     <!--  This data template will be displayed in N.I.N.A. on the options->plugin tab with the datacontext of the TestPlugin instance  -->
     <!--  In order for this datatemplate to be picked correctly, the key has to follow the naming convention of <IPlugin.Name>_Options -->
     <!--  Furthermore the Resource Dictionary has to be exported via code behind export attributes  -->
-    <DataTemplate x:Key="LuckyImaging_Options">
+    <DataTemplate x:Key="NINA.Luckyimaging_Options">
         <StackPanel Orientation="Vertical">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Width="160" VerticalAlignment="Center" Text="Show every Nth Image" />

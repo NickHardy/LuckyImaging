@@ -3,7 +3,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <OutputType>Library</OutputType>
     <RootNamespace>NINA.Luckyimaging</RootNamespace>
-    <AssemblyTitle>LuckyImaging</AssemblyTitle>
+    <AssemblyTitle>NINA.Luckyimaging</AssemblyTitle>
     <AssemblyName>NINA.Luckyimaging</AssemblyName>
 	<AssemblyProduct>LuckyImaging</AssemblyProduct>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
