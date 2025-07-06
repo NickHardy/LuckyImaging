@@ -4,7 +4,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>NINA.Luckyimaging</RootNamespace>
     <AssemblyTitle>LuckyImaging</AssemblyTitle>
-    <AssemblyName>LuckyImaging</AssemblyName>
+    <AssemblyName>NINA.Luckyimaging</AssemblyName>
 	<AssemblyProduct>LuckyImaging</AssemblyProduct>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <UseWPF>true</UseWPF>
