@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NINA.Core.Utility;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -29,8 +30,10 @@ public class SerWriter {
     }
 
     public void AddFrame(ushort[] imageData, DateTime frameTime) {
-        if (imageData.Length != width * height)
+        if (imageData.Length != width * height) {
+            Logger.Error($"Frame length {imageData.Length} does not match file. Width: {width} Height: {height} Length: {width * height}");
             throw new ArgumentException("Image size doesn't match.");
+        }
 
         // Write image data
         foreach (ushort pixel in imageData)

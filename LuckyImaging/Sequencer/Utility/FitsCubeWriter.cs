@@ -1,4 +1,5 @@
-﻿using NINA.Image.Interfaces;
+﻿using NINA.Core.Utility;
+using NINA.Image.Interfaces;
 using System;
 using System.IO;
 
@@ -12,10 +13,10 @@ public class FitsCubeWriter {
     private readonly FileStream stream;
     private readonly BinaryWriter writer;
 
-    public FitsCubeWriter(string filePath, IImageData imageData, int frameCount) {
+    public FitsCubeWriter(string filePath, int width, int height, IImageData imageData, int frameCount) {
         this.filePath = filePath;
-        this.width = imageData.Properties.Width;
-        this.height = imageData.Properties.Height;
+        this.width = width;
+        this.height = height;
         this.frameCount = frameCount;
         var header = new FITSHeader(width, height, frameCount);
         header.PopulateFromMetaData(imageData.MetaData);
@@ -27,8 +28,10 @@ public class FitsCubeWriter {
     }
 
     public void AddFrame(ushort[] frame) {
-        if (frame.Length != width * height)
-            throw new ArgumentException("Frame size mismatch.");
+        if (frame.Length != width * height) {
+            Logger.Error($"Frame length {frame.Length} does not match file. Width: {width} Height: {height} Length: {width * height}");
+            throw new ArgumentException("Image size doesn't match.");
+        }
 
         /* Write image data */
         for (int i = 0; i < frame.Length; i++) {

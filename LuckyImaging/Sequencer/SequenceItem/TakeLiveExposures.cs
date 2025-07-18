@@ -22,6 +22,7 @@ using NINA.Core.Locale;
 using NINA.Core.Model;
 using NINA.Core.Model.Equipment;
 using NINA.Core.Utility;
+using NINA.Core.Utility.Notification;
 using NINA.Equipment.Equipment.MyCamera;
 using NINA.Equipment.Equipment.MyFilterWheel;
 using NINA.Equipment.Equipment.MyFocuser;
@@ -46,7 +47,6 @@ using NINA.WPF.Base.Interfaces.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.Globalization;
@@ -93,6 +93,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             Gain = -1;
             Offset = -1;
             ImageType = CaptureSequence.ImageTypes.LIGHT;
+            ShowFollowOptions = false;
             this.imagingMediator = imagingMediator;
             this.imageSaveMediator = imageSaveMediator;
             this.imageHistoryVM = imageHistoryVM;
@@ -123,6 +124,11 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             EnableSubSample = true;
             SubSampleRectangle = new ObservableRectangle(0, 0, 1024, 1024);
 
+            FollowTarget = false;
+            TargetPixelThreshold = 5000;
+            RoiRefreshTime = 500;
+            TestRoi = false;
+
             SaveAsType = "FITS";
         }
 
@@ -145,6 +151,10 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 FilterHfr = FilterHfr,
                 FilterOnStars = FilterOnStars,
                 FilterStars = FilterStars,
+                FollowTarget = FollowTarget,
+                TargetPixelThreshold = TargetPixelThreshold,
+                RoiRefreshTime = RoiRefreshTime,
+                TestRoi = TestRoi,
             };
 
             if (clone.Binning == null) {
@@ -242,6 +252,21 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
         [JsonProperty]
         public double FilterStars { get => filterStars; set { filterStars = value; RaisePropertyChanged(); } }
+
+        [ObservableProperty]
+        private bool showFollowOptions;
+
+        [ObservableProperty]
+        private bool followTarget;
+
+        [ObservableProperty]
+        private int targetPixelThreshold;
+
+        [ObservableProperty]
+        private int roiRefreshTime;
+
+        [ObservableProperty]
+        private bool testRoi;
 
         private CameraInfo cameraInfo;
 
@@ -376,7 +401,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 ImageType = ImageType,
                 ProgressExposureCount = ExposureCount,
                 TotalExposureCount = TotalExposureCount,
-                EnableSubSample = EnableSubSample,
+                EnableSubSample = EnableSubSample && !FollowTarget,
                 SubSambleRectangle = RetrieveLuckyTargetRoi(Parent),
             };
 
@@ -385,10 +410,11 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             _frames = new List<Frame>();
             List<Task> _tasks = new List<Task>();
 
+            long refreshRoi = 0;
             bool _firstImage = true;
             var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
             Stopwatch seqDuration = Stopwatch.StartNew();
-            await liveViewEnumerable.ForEachAsync(exposureData => {
+            await liveViewEnumerable.ForEachAsync(async exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
                     var exposureEnd = DateTime.Now; // first thing is to get the endTime
@@ -420,10 +446,18 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         // Create tasks without starting them
                         int id = ExposureCount;
                         if (SaveToMemory) {
-                            _tasks.Add(new Task(() => ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token)));
+                            _tasks.Add(new Task(async () => await ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token)));
                         } else {
-                            _ = ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token);
+                            await ProcessExposureData(exposureData, exposureEnd, luckyRun, id, progress, token);
                         }
+
+                        //check and set Roi
+                        //if (FollowTarget && seqDuration.ElapsedMilliseconds - refreshRoi > RoiRefreshTime) {
+                        //    var imageData = await exposureData.ToImageData(progress, token);
+                        //    var subSambleRectangle = GetRoiForTarget(imageData, CameraInfo.XSize, CameraInfo.YSize);
+                        //    cameraMediator.SetSubSambleRectangle(subSambleRectangle);
+                        //    refreshRoi = seqDuration.ElapsedMilliseconds;
+                        //}
 
                         if (ExposureCount >= TotalExposureCount) {
                             double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
@@ -467,6 +501,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
         public async Task ExecuteSer(IProgress<ApplicationStatus> progress, CancellationToken token) {
             ExposureCount = 1;
             LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
+            var subSample = RetrieveLuckyTargetRoi(Parent);
             var luckyRun = 1;
             if (luckyContainer != null) {
                 luckyContainer.LuckyRun++;
@@ -486,30 +521,29 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 ImageType = ImageType,
                 ProgressExposureCount = ExposureCount,
                 TotalExposureCount = TotalExposureCount,
-                EnableSubSample = EnableSubSample,
-                SubSambleRectangle = RetrieveLuckyTargetRoi(Parent),
+                EnableSubSample = EnableSubSample && !FollowTarget,
+                SubSambleRectangle = subSample,
             };
 
             var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
 
             _frames = new List<Frame>();
-            List<Task> _tasks = new List<Task>();
 
             bool _firstImage = true;
             SerWriter ser = null;
-
+            long refreshRoi = 0;
             var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
             Stopwatch seqDuration = Stopwatch.StartNew();
             await liveViewEnumerable.ForEachAsync(async exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
+                    var imageData = await exposureData.ToImageData(progress, token);
                     if (_firstImage) {
                         var saveSerPath = await ProcessExposureData(exposureData, DateTime.Now, luckyRun, 1, progress, token);
-                        var imageData = await exposureData.ToImageData(progress, token);
                         File.Delete(saveSerPath);
                         saveSerPath = saveSerPath.Replace(".fits", ".ser");
 
-                        ser = new SerWriter(saveSerPath, imageData.Properties.Width, imageData.Properties.Height);
+                        ser = new SerWriter(saveSerPath, (int)subSample.Width, (int)subSample.Height);
 
                         _firstImage = false;
                         seqDuration = Stopwatch.StartNew();
@@ -517,20 +551,31 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                             // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
                             return;
                     }
+                    if (ser == null) return;
 
-                    var _task = new Task(async () => {
-                        int id = ExposureCount;
-                        int total = TotalExposureCount;
-                        var imageData = await exposureData.ToImageData(progress, token);
-                        // Only show first, last and nth image in Imaging window
-                        if (id == 1 || id % luckyimaging.ShowEveryNthImage == 0 || id == total) {
-                            var imageParams = new PrepareImageParameters(null, false);
-                            _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                    int id = ExposureCount;
+                    int total = TotalExposureCount;
+                    // Only show first, last and nth image in Imaging window
+                    if (id == 1 || id % luckyimaging.ShowEveryNthImage == 0 || id == total) {
+                        var imageParams = new PrepareImageParameters(null, false);
+                        _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                    }
+                    if (subSample.Width == imageData.Properties.Width && subSample.Height == imageData.Properties.Height) {
+                        try {
+                            ser.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
+                        } catch (Exception ex) {
+                            Logger.Error(ex);
+                            localCTS.Cancel();
+                            Notification.ShowWarning("Failed to write frame to the serFile.");
                         }
-                        ser.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
-                    });
-                    _task.Start();
-                    _tasks.Add(_task);
+                    }
+
+                    //check and set Roi
+                    //if (FollowTarget && seqDuration.ElapsedMilliseconds - refreshRoi > RoiRefreshTime) {
+                    //    var subSambleRectangle = GetRoiForTarget(imageData, CameraInfo.XSize, CameraInfo.YSize);
+                    //    cameraMediator.SetSubSambleRectangle(subSambleRectangle);
+                    //    refreshRoi = seqDuration.ElapsedMilliseconds;
+                    //}
 
                     if (ExposureCount >= TotalExposureCount) {
                         double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
@@ -551,7 +596,6 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 await Task.Delay(TimeSpan.FromMilliseconds(100), token);
             }
             // Wait for all tasks to complete
-            Task.WaitAll(_tasks.ToArray());
             ser.Close();
             await Task.Delay(TimeSpan.FromMilliseconds(100), token);
         }
@@ -561,6 +605,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             ExposureCount = 1;
             var luckyRun = 1;
             LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
+            var subSample = RetrieveLuckyTargetRoi(Parent);
             if (luckyContainer != null) {
                 luckyContainer.LuckyRun++;
                 luckyRun = luckyContainer.LuckyRun;
@@ -579,31 +624,30 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 ImageType = ImageType,
                 ProgressExposureCount = ExposureCount,
                 TotalExposureCount = TotalExposureCount,
-                EnableSubSample = EnableSubSample,
-                SubSambleRectangle = RetrieveLuckyTargetRoi(Parent),
+                EnableSubSample = EnableSubSample && !FollowTarget,
+                SubSambleRectangle = subSample,
             };
 
             var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
 
             _frames = new List<Frame>();
-            List<Task> _tasks = new List<Task>();
 
             bool _firstImage = true;
             FitsCubeWriter fcube = null;
-
+            long refreshRoi = 0;
             var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
             Stopwatch seqDuration = Stopwatch.StartNew();
             await liveViewEnumerable.ForEachAsync(async exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
+                    var imageData = await exposureData.ToImageData(progress, token);
                     if (_firstImage) {
                         var saveFitsCubePath = await ProcessExposureData(exposureData, DateTime.Now, luckyRun, 1, progress, token);
-                        var imageData = await exposureData.ToImageData(progress, token);
 
                         File.Delete(saveFitsCubePath);
                         saveFitsCubePath = saveFitsCubePath.Replace(".fits", ".cube.fits");
 
-                        fcube = new FitsCubeWriter(saveFitsCubePath, imageData, TotalExposureCount);
+                        fcube = new FitsCubeWriter(saveFitsCubePath, (int)subSample.Width, (int)subSample.Height, imageData, TotalExposureCount);
 
                         _firstImage = false;
                         seqDuration = Stopwatch.StartNew();
@@ -611,20 +655,29 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                             // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
                             return;
                     }
+                    if (fcube == null) return;
 
-                    var _task = new Task(async () => {
-                        int id = ExposureCount;
-                        int total = TotalExposureCount;
-                        var imageData = await exposureData.ToImageData(progress, token);
-                        // Only show first, last and nth image in Imaging window
-                        if (id == 1 || id % luckyimaging.ShowEveryNthImage == 0 || id == total) {
-                            var imageParams = new PrepareImageParameters(null, false);
-                            _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                    // Only show first, last and nth image in Imaging window
+                    if (ExposureCount == 1 || ExposureCount % luckyimaging.ShowEveryNthImage == 0 || ExposureCount == TotalExposureCount) {
+                        var imageParams = new PrepareImageParameters(null, false);
+                        _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                    }
+                    if (subSample.Width == imageData.Properties.Width && subSample.Height == imageData.Properties.Height) {
+                        try {
+                            fcube.AddFrame(imageData.Data.FlatArray);
+                        } catch (Exception ex) {
+                            Logger.Error(ex);
+                            localCTS.Cancel();
+                            Notification.ShowWarning("Failed to write frame to the fitsCube.");
                         }
-                        fcube.AddFrame(imageData.Data.FlatArray);
-                    });
-                    _task.Start();
-                    _tasks.Add(_task);
+                    }
+
+                    //check and set Roi
+                    //if (FollowTarget && seqDuration.ElapsedMilliseconds - refreshRoi > RoiRefreshTime) {
+                    //    var subSambleRectangle = GetRoiForTarget(imageData, CameraInfo.XSize, CameraInfo.YSize);
+                    //    cameraMediator.SetSubSambleRectangle(subSambleRectangle);
+                    //    refreshRoi = seqDuration.ElapsedMilliseconds;
+                    //}
 
                     if (ExposureCount >= TotalExposureCount) {
                         double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
@@ -645,9 +698,69 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 await Task.Delay(TimeSpan.FromMilliseconds(100), token);
             }
             // Wait for all tasks to complete
-            Task.WaitAll(_tasks.ToArray());
             fcube.Close();
             await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+        }
+
+        private ObservableRectangle GetRoiForTarget(IImageData imageData, int cameraWidth, int cameraHeight) {
+            var rect = RetrieveLuckyTargetRoi(Parent);
+            var returnRect = new ObservableRectangle { X = 0, Y = 0, Height = cameraWidth, Width = cameraHeight };
+            var width = imageData.Properties.Width;
+            var height = imageData.Properties.Height;
+            int sumX = 0, sumY = 0, count = 0;
+
+            ushort[,] image2D = new ushort[height, width];
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    image2D[y, x] = imageData.Data.FlatArray[y * width + x];
+                    if (image2D[y, x] > TargetPixelThreshold) {
+                        sumX += x;
+                        sumY += y;
+                        count++;
+                    }
+                }
+            }
+            if (TestRoi) {
+                X += 10;
+                Y += 10;
+                return RetrieveLuckyTargetRoi(Parent);
+            }
+            if (count > 0) {
+                int centerX = sumX / count;
+                int centerY = sumY / count;
+                if (width != cameraWidth || height != cameraHeight) { // Just move the roi based on the object within the roi
+                    centerX += (int)rect.X;
+                    centerY += (int)rect.Y;
+                }
+                // ROI found, setting coordinates
+                returnRect.X = Math.Min(Math.Max(centerX - (rect.Width / 2), 0), cameraWidth);
+                returnRect.Y = Math.Min(Math.Max(centerY - (rect.Height / 2), 0), cameraHeight);
+                X = returnRect.X; Y = returnRect.Y; // update the values in the instruction
+                returnRect.Width = rect.Width; returnRect.Height = rect.Height;
+                return returnRect;
+            } else {
+                return returnRect;
+            }
+        }
+
+        ushort[] ExtractROI(ushort[] fullImage, int imageWidth, int imageHeight, ObservableRectangle rect) {
+
+            int startX = (int)rect.X;
+            int startY = (int)rect.Y;
+            int endX = startX + (int)rect.Width;
+            int endY = startY + (int)rect.Height;
+
+            ushort[] roi = new ushort[(int)rect.Width * (int)rect.Height];
+
+            for (int y = 0; y < (int)rect.Height; y++) {
+                for (int x = 0; x < (int)rect.Width; x++) {
+                    int fullIndex = (startY + y) * imageWidth + (startX + x);
+                    int roiIndex = y * (int)rect.Width + x;
+                    roi[roiIndex] = fullImage[fullIndex];
+                }
+            }
+
+            return roi;
         }
 
 
@@ -709,8 +822,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     Value = $"{luckyRun}"
                 });
                 FileSaveInfo fileSaveInfo = new FileSaveInfo(profileService);
-                string tempPath = await imageData.PrepareSave(fileSaveInfo);
-                savePath = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
+                //string tempPath = await imageData.PrepareSave(fileSaveInfo);
+                //savePath = imageData.FinalizeSave(tempPath, fileSaveInfo.FilePattern, customPatterns);
+                savePath = await imageData.SaveToDisk(fileSaveInfo, token, false, customPatterns);
             }
 
             return savePath;

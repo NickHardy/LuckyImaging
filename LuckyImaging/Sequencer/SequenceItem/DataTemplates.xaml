@@ -214,32 +214,6 @@
                 </ninactrl:HintTextBox.Text>
             </ninactrl:HintTextBox>
         </WrapPanel>
-        <WrapPanel Orientation="Horizontal">
-
-            <TextBlock
-            Margin="7.5,0,7.5,0"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Text="|" />
-
-            <TextBlock VerticalAlignment="Center" Text="Save to" />
-            <ComboBox
-                Margin="5,0,0,0"
-                VerticalAlignment="Center"
-                Background="{StaticResource TertiaryBackgroundBrush}"
-                SelectedValue="{Binding SaveAsType}"
-                SelectedValuePath="Name">
-                <ComboBox.Resources>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{StaticResource ButtonForegroundBrush}" />
-                    </Style>
-                </ComboBox.Resources>
-                <ComboBoxItem Name="FITS">Fits</ComboBoxItem>
-                <ComboBoxItem Name="SER">Ser</ComboBoxItem>
-                <ComboBoxItem Name="FITSCUBE">FitsCube</ComboBoxItem>
-            </ComboBox>
-
-        </WrapPanel>
     </WrapPanel>
 
     <DataTemplate x:Key="NINA.Luckyimaging.Sequencer.SequenceItem.TakeLiveExposures_Mini">
@@ -274,6 +248,33 @@
                         Text="|" />
 
                         <ContentPresenter Content="{StaticResource TakeExposureDetails}" />
+
+                        <WrapPanel Orientation="Horizontal">
+
+                            <TextBlock
+                                Margin="7.5,0,7.5,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Text="|" />
+
+                            <TextBlock VerticalAlignment="Center" Text="Save to" />
+                            <ComboBox
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="{StaticResource TertiaryBackgroundBrush}"
+                                SelectedValue="{Binding SaveAsType}"
+                                SelectedValuePath="Content">
+                                <ComboBox.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource ButtonForegroundBrush}" />
+                                    </Style>
+                                </ComboBox.Resources>
+                                <ComboBoxItem Content="FITS"></ComboBoxItem>
+                                <ComboBoxItem Content="SER"></ComboBoxItem>
+                                <ComboBoxItem Content="FITSCUBE"></ComboBoxItem>
+                            </ComboBox>
+
+                        </WrapPanel>
 
                         <WrapPanel Visibility="{Binding SaveAsType, Converter={StaticResource IsParameterToVisibilityCollapsedConverter}, ConverterParameter='FITS'}">
                             <TextBlock
@@ -420,6 +421,60 @@
                                     </Binding>
                                 </TextBox.Text>
                             </TextBox>
+                        </WrapPanel>
+
+                    </WrapPanel>
+                    <WrapPanel Visibility="{Binding ShowFollowOptions, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}">
+                        <WrapPanel>
+                            <TextBlock
+                                Margin="7.5,0,7.5,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Text="|" />
+                            <TextBlock
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                Text="Follow target" />
+                            <CheckBox
+                                Margin="5,0,0,0"
+                                Width="80"
+                                HorizontalAlignment="Right"
+                                IsChecked="{Binding FollowTarget}">
+                            </CheckBox>
+                            <TextBlock
+                                Margin="7.5,0,7.5,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Text="|" />
+                            <TextBlock Margin="5,0,0,0" VerticalAlignment="Center" Text="Pixel threshold" />
+                            <TextBox Margin="5,0,0,0" MinWidth="40" VerticalAlignment="Center" VerticalContentAlignment="Center">
+                                <TextBox.Text>
+                                    <Binding Mode="TwoWay" Path="TargetPixelThreshold">
+                                    </Binding>
+                                </TextBox.Text>
+                            </TextBox>
+                            <TextBlock Margin="5,0,0,0" VerticalAlignment="Center" Text="Roi refresh time" />
+                            <TextBox MinWidth="40" Margin="5,0,0,0" VerticalAlignment="Center" VerticalContentAlignment="Center">
+                                <TextBox.Text>
+                                    <Binding Mode="TwoWay" Path="RoifRefreshTime">
+                                    </Binding>
+                                </TextBox.Text>
+                            </TextBox>
+                            <TextBlock
+                                Margin="7.5,0,7.5,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Text="|" />
+                            <TextBlock
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                Text="Test roi steps" />
+                            <CheckBox
+                                Margin="5,0,0,0"
+                                Width="80"
+                                HorizontalAlignment="Right"
+                                IsChecked="{Binding TestRoi}">
+                            </CheckBox>
                         </WrapPanel>
                     </WrapPanel>
                 </WrapPanel>
