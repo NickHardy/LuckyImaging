@@ -543,7 +543,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         File.Delete(saveSerPath);
                         saveSerPath = saveSerPath.Replace(".fits", ".ser");
 
-                        ser = new SerWriter(saveSerPath, (int)subSample.Width, (int)subSample.Height);
+                        ser = new SerWriter(saveSerPath, (int)subSample.Width / Binning.X, (int)subSample.Height / Binning.Y);
 
                         _firstImage = false;
                         seqDuration = Stopwatch.StartNew();
@@ -560,7 +560,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         var imageParams = new PrepareImageParameters(null, false);
                         _ = imagingMediator.PrepareImage(imageData, imageParams, token);
                     }
-                    if (subSample.Width == imageData.Properties.Width && subSample.Height == imageData.Properties.Height) {
+                    if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
                         try {
                             ser.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
                         } catch (Exception ex) {
@@ -647,7 +647,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         File.Delete(saveFitsCubePath);
                         saveFitsCubePath = saveFitsCubePath.Replace(".fits", ".cube.fits");
 
-                        fcube = new FitsCubeWriter(saveFitsCubePath, (int)subSample.Width, (int)subSample.Height, imageData, TotalExposureCount);
+                        fcube = new FitsCubeWriter(saveFitsCubePath, (int)subSample.Width / Binning.X, (int)subSample.Height / Binning.Y, imageData, TotalExposureCount);
 
                         _firstImage = false;
                         seqDuration = Stopwatch.StartNew();
@@ -662,7 +662,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         var imageParams = new PrepareImageParameters(null, false);
                         _ = imagingMediator.PrepareImage(imageData, imageParams, token);
                     }
-                    if (subSample.Width == imageData.Properties.Width && subSample.Height == imageData.Properties.Height) {
+                    if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
                         try {
                             fcube.AddFrame(imageData.Data.FlatArray);
                         } catch (Exception ex) {
