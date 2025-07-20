@@ -1,4 +1,5 @@
-﻿using NINA.Core.Utility;
+﻿using Newtonsoft.Json;
+using NINA.Core.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,105 +7,108 @@ using System.Text;
 
 namespace NINA.Luckyimaging.Sequencer.Utility;
 
-public class SerWriter {
-    private FileStream fileStream;
-    private BinaryWriter writer;
-    private int width, height;
-    private int frameCount;
-    private string filePath;
-    private List<double> secondsList = new();
-    private List<long> ticksList = new();
-    private DateTime startTime;
+public class SerWriter : IDisposable {
+    private readonly FileStream _fs;
+    private readonly BinaryWriter _bw;
+    private readonly int _width, _height;
+    private int _frameCount;
+    private readonly DateTime _startLocal, _startUtc;
+    private readonly List<long> _timestamps = new();
+    private bool _closed = false;
 
     public SerWriter(string filePath, int width, int height) {
-        this.filePath = filePath;
-        this.width = width;
-        this.height = height;
-        this.frameCount = 0;
-        this.startTime = DateTime.UtcNow;
+        _width = width;
+        _height = height;
+        _frameCount = 0;
+        _startLocal = DateTime.Now;
+        _startUtc = DateTime.UtcNow;
 
-        fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-        writer = new BinaryWriter(fileStream);
+        _fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+        _bw = new BinaryWriter(_fs, Encoding.ASCII, leaveOpen: true);
 
-        WriteHeaderPlaceholder();
+        // Reserve header space
+        _bw.Write(new byte[178]);
     }
 
     public void AddFrame(ushort[] imageData, DateTime frameTime) {
-        if (imageData.Length != width * height) {
-            Logger.Error($"Frame length {imageData.Length} does not match file. Width: {width} Height: {height} Length: {width * height}");
-            throw new ArgumentException("Image size doesn't match.");
-        }
+        if (imageData.Length != _width * _height)
+            throw new ArgumentException($"Expected {_width * _height} pixels, got {imageData.Length}");
 
-        // Write image data
-        foreach (ushort pixel in imageData)
-            writer.Write(pixel); // Little-endian ushort
+        // Write raw pixels (little‑endian)
+        foreach (ushort px in imageData)
+            _bw.Write(px);
 
-        // Save timestamp
-        double secondsSinceStart = (frameTime - startTime).TotalSeconds;
-        secondsList.Add(secondsSinceStart);
-        ticksList.Add(frameTime.Ticks);
+        // Record just the FILETIME ticks for the trailer
+        long fileTimeUtc = frameTime.ToUniversalTime().ToFileTimeUtc();
+        _timestamps.Add(fileTimeUtc);
 
-        frameCount++;
+        // Optional: log elapsed seconds
+        double secs = (frameTime.ToUniversalTime() - _startUtc).TotalSeconds;
+        Logger.Debug($"Frame {_frameCount} @ +{secs:F3}s  ticks={fileTimeUtc}");
+
+        _frameCount++;
     }
 
     public void Close() {
-        WriteTimestamps();
-        UpdateHeader();
-        writer.Close();
-        fileStream.Close();
-    }
+        if (_closed) return;
+        _closed = true;
 
-    private void WriteHeaderPlaceholder() {
-        byte[] header = new byte[178];
-        writer.Write(header);
-    }
+        _bw.Flush();
 
-    private void UpdateHeader() {
-        fileStream.Seek(0, SeekOrigin.Begin);
+        // --- Write the per‑frame trailer of FILETIMEs ---
+        long pixelBytes = (long)_width * _height * 2 * _frameCount;
+        long trailerPos = 178 + pixelBytes;
+        _fs.Seek(trailerPos, SeekOrigin.Begin);
 
-        uint luId = 0; // unused
-        uint colorID = 0; // Mono 16-bit
-        uint littleEndian = 1;
-        uint bitsPerPixel = 16;
-        uint frameDataOffset = 178;
-        uint bytesPerFrame = (uint)(width * height * 2);
-        uint totalFrameBytes = bytesPerFrame * (uint)frameCount;
-        uint timestampBytes = (uint)(frameCount * 16);
-        uint timestampOffset = frameDataOffset + totalFrameBytes;
-
-        writer.Write(Encoding.ASCII.GetBytes("LUCAM-RECORDER".PadRight(14, '\0'))); // FileID
-        writer.Write(luId);
-        writer.Write(colorID);
-        writer.Write(littleEndian);
-        writer.Write((uint)width);
-        writer.Write((uint)height);
-        writer.Write(bitsPerPixel);
-        writer.Write((uint)frameCount);
-        writer.Write((uint)0); // ObserverOffset
-        writer.Write((uint)0); // InstrumentOffset
-        writer.Write((uint)0); // TelescopeOffset
-        writer.Write((ulong)startTime.Ticks); // DateTimeUTC
-        writer.Write(frameDataOffset);
-        writer.Write(totalFrameBytes);
-        writer.Write(timestampBytes);
-        writer.Write(timestampOffset);
-        writer.Write((uint)0); // Trailer offset
-
-        // Fill up to 178 bytes
-        int bytesWritten = 76;
-        writer.Write(new byte[178 - bytesWritten]);
-    }
-
-    private void WriteTimestamps() {
-        foreach (var (seconds, ticks) in Zip(secondsList, ticksList)) {
-            writer.Write(seconds);
-            writer.Write(ticks);
+        using (var tsWriter = new BinaryWriter(_fs, Encoding.ASCII, leaveOpen: true)) {
+            foreach (long ticks in _timestamps)
+                tsWriter.Write(ticks);
         }
+
+        // --- Rewrite the header in place ---
+        WriteHeader();
+
+        _bw.Close();
+        _fs.Close();
+
+        Logger.Debug("Timestamps: " + JsonConvert.SerializeObject(_timestamps));
     }
 
-    private IEnumerable<(T1, T2)> Zip<T1, T2>(IList<T1> a, IList<T2> b) {
-        for (int i = 0; i < Math.Min(a.Count, b.Count); i++)
-            yield return (a[i], b[i]);
+    private void WriteHeader() {
+        using var ms = new MemoryStream(178);
+        using var hw = new BinaryWriter(ms, Encoding.ASCII, leaveOpen: true);
+
+        // 1) Signature + IDs
+        hw.Write(Encoding.ASCII.GetBytes("LUCAM-RECORDER".PadRight(14, '\0')));
+        hw.Write((uint)0);   // LuID
+        hw.Write((uint)0);   // ColorID (0=mono)
+        hw.Write((uint)1);   // LittleEndian
+
+        // 2) Geometry
+        hw.Write((uint)_width);
+        hw.Write((uint)_height);
+        hw.Write((uint)16);      // bitsPerPixel
+        hw.Write((uint)_frameCount);
+
+        // 3) Names (observer, instrument, telescope) – empty for now
+        byte[] empty40 = new byte[40];
+        hw.Write(empty40);
+        hw.Write(empty40);
+        hw.Write(empty40);
+
+        // 4) Start times: local then UTC
+        hw.Write((ulong)_startLocal.ToFileTimeUtc());
+        hw.Write((ulong)_startUtc.ToFileTimeUtc());
+
+        // 5) Pad to 178 bytes
+        int pad = 178 - (int)ms.Position;
+        if (pad > 0)
+            hw.Write(new byte[pad]);
+
+        // Write header back to file
+        _fs.Seek(0, SeekOrigin.Begin);
+        _fs.Write(ms.GetBuffer(), 0, 178);
     }
+
+    public void Dispose() => Close();
 }
-

@@ -374,6 +374,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                 case "SER":
                     await ExecuteSer(progress, token);
                     break;
+                case "ADV":
+                    await ExecuteAdv(progress, token);
+                    break;
                 case "FITSCUBE":
                     await ExecuteFitscube(progress, token);
                     break;
@@ -563,6 +566,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
                         try {
                             ser.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
+                        } catch (ArgumentException ae) {
+                            // No worries just wait for a new image
+                            return;
                         } catch (Exception ex) {
                             Logger.Error(ex);
                             localCTS.Cancel();
@@ -597,6 +603,111 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             }
             // Wait for all tasks to complete
             ser.Close();
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+        }
+
+        public async Task ExecuteAdv(IProgress<ApplicationStatus> progress, CancellationToken token) {
+            ExposureCount = 1;
+            LuckyTargetContainer luckyContainer = ItemUtility.RetrieveLuckyContainer(Parent);
+            var subSample = RetrieveLuckyTargetRoi(Parent);
+            var luckyRun = 1;
+            if (luckyContainer != null) {
+                luckyContainer.LuckyRun++;
+                luckyRun = luckyContainer.LuckyRun;
+                EnableSubSample = luckyContainer.EnableSubSample;
+            }
+            options.AddImagePattern(new ImagePattern(luckyimaging.luckyRunPattern.Key, luckyimaging.luckyRunPattern.Description, luckyimaging.luckyRunPattern.Category) {
+                Value = $"{luckyRun}"
+            });
+            var target = RetrieveTarget(Parent);
+
+            var capture = new CaptureSequence() {
+                ExposureTime = ExposureTime,
+                Binning = Binning,
+                Gain = Gain,
+                Offset = Offset,
+                ImageType = ImageType,
+                ProgressExposureCount = ExposureCount,
+                TotalExposureCount = TotalExposureCount,
+                EnableSubSample = EnableSubSample && !FollowTarget,
+                SubSambleRectangle = subSample,
+            };
+
+            var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            _frames = new List<Frame>();
+
+            bool _firstImage = true;
+            AdvWriter adv = null;
+            long refreshRoi = 0;
+            var liveViewEnumerable = cameraMediator.LiveView(capture, localCTS.Token);
+            Stopwatch seqDuration = Stopwatch.StartNew();
+            await liveViewEnumerable.ForEachAsync(async exposureData => {
+                token.ThrowIfCancellationRequested();
+                if (exposureData != null) {
+                    var imageData = await exposureData.ToImageData(progress, token);
+                    if (_firstImage) {
+                        var saveAdvPath = await ProcessExposureData(exposureData, DateTime.Now, luckyRun, 1, progress, token);
+                        File.Delete(saveAdvPath);
+                        saveAdvPath = saveAdvPath.Replace(".fits", ".adv");
+
+                        adv = new AdvWriter(saveAdvPath, (int)subSample.Width / Binning.X, (int)subSample.Height / Binning.Y);
+
+                        _firstImage = false;
+                        seqDuration = Stopwatch.StartNew();
+                        if (ExposureTime < 1d)
+                            // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
+                            return;
+                    }
+                    if (adv == null) return;
+
+                    int id = ExposureCount;
+                    int total = TotalExposureCount;
+                    // Only show first, last and nth image in Imaging window
+                    if (id == 1 || id % luckyimaging.ShowEveryNthImage == 0 || id == total) {
+                        var imageParams = new PrepareImageParameters(null, false);
+                        _ = imagingMediator.PrepareImage(imageData, imageParams, token);
+                    }
+                    if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
+                        try {
+                            adv.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
+                        } catch (ArgumentException ae) {
+                            // No worries just wait for a new image
+                            return;
+                        } catch (Exception ex) {
+                            Logger.Error(ex);
+                            localCTS.Cancel();
+                            Notification.ShowWarning("Failed to write frame to the serFile.");
+                        }
+                    }
+
+                    //check and set Roi
+                    //if (FollowTarget && seqDuration.ElapsedMilliseconds - refreshRoi > RoiRefreshTime) {
+                    //    var subSambleRectangle = GetRoiForTarget(imageData, CameraInfo.XSize, CameraInfo.YSize);
+                    //    cameraMediator.SetSubSambleRectangle(subSambleRectangle);
+                    //    refreshRoi = seqDuration.ElapsedMilliseconds;
+                    //}
+
+                    if (ExposureCount >= TotalExposureCount) {
+                        double fps = ExposureCount / (((double)seqDuration.ElapsedMilliseconds) / 1000);
+                        Logger.Info("Captured " + ExposureCount + " times " + ExposureTime + "s live images in " + seqDuration.ElapsedMilliseconds + " ms. : " + Math.Round(fps, 2) + " fps");
+                        try {
+                            // Log dropped frames for zwo cameras
+                            Logger.Debug("Dropped frames: " + cameraMediator.Action("GetDroppedFrames", ""));
+                        } catch (Exception) { /*do nothing*/ }
+                        localCTS.Cancel();
+                    } else { ExposureCount++; }
+                }
+            });
+
+            // wait till camera reconnects. Specifically for QHY camera's
+            await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            while (!cameraInfo.Connected) {
+                token.ThrowIfCancellationRequested();
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+            // Wait for all tasks to complete
+            adv.Close();
             await Task.Delay(TimeSpan.FromMilliseconds(100), token);
         }
 
