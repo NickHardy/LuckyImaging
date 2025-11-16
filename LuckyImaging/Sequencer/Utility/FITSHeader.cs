@@ -29,7 +29,7 @@ public class FITSHeader {
     public FITSHeader(int width, int height, int nrOfFrames) {
         Add("SIMPLE", true, "C# FITS");
         Add("BITPIX", 16, "");
-        Add("NAXIS", 3, "Dimensionality");
+        Add("NAXIS", 2, "Dimensionality");
         Add("NAXIS1", width, "");
         Add("NAXIS2", height, "");
         Add("NAXIS3", nrOfFrames, "");

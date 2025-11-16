@@ -58,6 +58,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using static NINA.Luckyimaging.Sequencer.Utility.ImageStatistics;
 
 namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
@@ -529,6 +530,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             };
 
             var localCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
+            List<Utility.ImageStatistics.ImageAnalysisResult> stats = new List<Utility.ImageStatistics.ImageAnalysisResult>();
 
             _frames = new List<Frame>();
 
@@ -565,7 +567,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     }
                     if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
                         try {
-                            ser.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
+                            var dateObs = imageData.MetaData.Image.ExposureStart == default ? DateTime.Now : imageData.MetaData.Image.ExposureStart;
+                            ser.AddFrame(imageData.Data.FlatArray, dateObs);
                         } catch (ArgumentException ae) {
                             // No worries just wait for a new image
                             return;
@@ -573,6 +576,15 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                             Logger.Error(ex);
                             localCTS.Cancel();
                             Notification.ShowWarning("Failed to write frame to the serFile.");
+                        }
+                    }
+
+                    if (ShowFollowOptions) {
+                        var stat = Utility.ImageStatistics.CreateFast(imageData, CameraInfo.XSize, CameraInfo.YSize, TargetPixelThreshold, subSample);
+                        stats.Add(stat);
+                        if ((Math.Abs(subSample.X - stat.Roi.X) > subSample.Width / 15) || (Math.Abs(subSample.Y - stat.Roi.Y) > subSample.Height / 15)) {
+                            X = stat.Roi.X; Y = stat.Roi.Y;
+                            cameraMediator.SetSubSambleRectangle(stat.Roi);
                         }
                     }
 
@@ -594,6 +606,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     } else { ExposureCount++; }
                 }
             });
+
+            if (ShowFollowOptions)
+                Logger.Debug("New ImageStats: " + JsonConvert.SerializeObject(stats));
 
             // wait till camera reconnects. Specifically for QHY camera's
             await Task.Delay(TimeSpan.FromMilliseconds(100), token);
