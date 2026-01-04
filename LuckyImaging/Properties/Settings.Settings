@@ -14,5 +14,8 @@
     <Setting Name="MinimumAvailableMemory" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">512</Value>
     </Setting>
+    <Setting Name="DateObsOffset" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

@@ -98,6 +98,17 @@ namespace NINA.Luckyimaging {
             }
         }
 
+        public double DateObsOffset {
+            get {
+                return Settings.Default.DateObsOffset;
+            }
+            set {
+                Settings.Default.DateObsOffset = value;
+                CoreUtil.SaveSettings(Settings.Default);
+                RaisePropertyChanged();
+            }
+        }
+
         private Task ImageSaveMediator_BeforeFinalizeImageSaved(object sender, BeforeFinalizeImageSavedEventArgs e) {
             // Normal images saved will get an empty value
             e.AddImagePattern(new ImagePattern(luckyRunPattern.Key, luckyRunPattern.Description, luckyRunPattern.Category) {

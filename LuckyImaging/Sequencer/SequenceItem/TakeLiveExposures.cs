@@ -421,7 +421,6 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             await liveViewEnumerable.ForEachAsync(async exposureData => {
                 token.ThrowIfCancellationRequested();
                 if (exposureData != null) {
-                    var exposureEnd = DateTime.Now; // first thing is to get the endTime
                     if (_firstImage) {
                         _firstImage = false;
                         seqDuration = Stopwatch.StartNew();
@@ -429,6 +428,8 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                             // ignore the first image if it's less than a second, because it could take a while for the camera to start up.
                             return;
                     }
+                    var exposureStart = exposureData.MetaData.Image.ExposureStart == default ? DateTime.Now : exposureData.MetaData.Image.ExposureStart;
+                    var exposureEnd = exposureStart.AddSeconds(ExposureTime);
                     // check memory
                     double availableMemoryMb = luckyimaging.MinimumAvailableMemory;
                     if (luckyimaging.MinimumAvailableMemory > 0) {
@@ -443,10 +444,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                         ExposureCount++; // Add to the exposurecount otherwise it might loop forever
                     } else {
                         if (luckyimaging.SaveStatsToCsv) {
-                            var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
-                            var exposureMid = ((DateTimeMetaDataHeader)exposureData.MetaData.GenericHeaders.FirstOrDefault(x => x.Key == "DATE_MID"))?.Value ?? exposureEnd.AddSeconds(-ExposureTime / 2);
-                            _frames.Add(new Frame(ExposureCount, exposureStart, exposureMid));
+                            _frames.Add(new Frame(ExposureCount, exposureStart, exposureData.MetaData.Image.ExposureMidPoint));
                         }
+                        // update times add offset
+                        exposureData.MetaData.Image.ExposureStart += TimeSpan.FromSeconds(luckyimaging.DateObsOffset);
+                        exposureData.MetaData.Image.ExposureMidPoint += TimeSpan.FromSeconds(luckyimaging.DateObsOffset);
+                        exposureEnd += TimeSpan.FromSeconds(luckyimaging.DateObsOffset);
                         // Create tasks without starting them
                         int id = ExposureCount;
                         if (SaveToMemory) {
@@ -568,6 +571,7 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
                         try {
                             var dateObs = imageData.MetaData.Image.ExposureStart == default ? DateTime.Now : imageData.MetaData.Image.ExposureStart;
+                            dateObs = dateObs.AddSeconds(luckyimaging.DateObsOffset);
                             ser.AddFrame(imageData.Data.FlatArray, dateObs);
                         } catch (ArgumentException ae) {
                             // No worries just wait for a new image
@@ -685,7 +689,9 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
                     }
                     if ((int)(subSample.Width / Binning.X) == imageData.Properties.Width && (int)(subSample.Height / Binning.Y) == imageData.Properties.Height) {
                         try {
-                            adv.AddFrame(imageData.Data.FlatArray, imageData.MetaData.Image.ExposureStart);
+                            var dateObs = imageData.MetaData.Image.ExposureStart == default ? DateTime.Now : imageData.MetaData.Image.ExposureStart;
+                            dateObs = dateObs.AddSeconds(luckyimaging.DateObsOffset);
+                            adv.AddFrame(imageData.Data.FlatArray, dateObs);
                         } catch (ArgumentException ae) {
                             // No worries just wait for a new image
                             return;
@@ -904,14 +910,12 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
             Assembly assembly = Assembly.GetExecutingAssembly();
             imageData.MetaData.GenericHeaders.Add(new StringMetaDataHeader("PLCREATE", "LuckyImaging-" + assembly.GetName().Version.ToString(), "The plugin used to create this file."));
 
-            var exposureStart = exposureEnd.AddSeconds(-ExposureTime);
-            imageData.MetaData.Image.ExposureStart = exposureStart;
             var id = imageHistoryVM.GetNextImageId();
             imageData.MetaData.Image.Id = id;
             imageData.MetaData.Image.ExposureNumber = id;
             imageData.MetaData.Image.ExposureTime = ExposureTime;
-            imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-BEG", AstroUtil.GetJulianDate(exposureStart), "Julian exposure start date"));
-            imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(exposureStart.AddSeconds(ExposureTime / 2)), "Julian exposure mid date"));
+            imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-BEG", AstroUtil.GetJulianDate(imageData.MetaData.Image.ExposureStart), "Julian exposure start date"));
+            imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(imageData.MetaData.Image.ExposureMidPoint), "Julian exposure mid date"));
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-END", AstroUtil.GetJulianDate(exposureEnd), "Julian exposure end date"));
 
             imageData.MetaData.GenericHeaders.Add(new IntMetaDataHeader("LUCKYRUN", luckyRun, "Current lucky imaging run for the target"));

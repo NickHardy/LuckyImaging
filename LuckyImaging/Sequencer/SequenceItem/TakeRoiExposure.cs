@@ -242,12 +242,16 @@ namespace NINA.Luckyimaging.Sequencer.SequenceItem {
 
             var imageData = await exposureData.ToImageData(progress, token);
 
+            // update times add offset
+            imageData.MetaData.Image.ExposureStart += TimeSpan.FromSeconds(luckyimaging.DateObsOffset);
+            imageData.MetaData.Image.ExposureMidPoint += TimeSpan.FromSeconds(luckyimaging.DateObsOffset);
+
             var prepareTask = imagingMediator.PrepareImage(imageData, imageParams, token);
 
             AddMetaData(imageData.MetaData, target, capture.SubSambleRectangle);
 
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-BEG", AstroUtil.GetJulianDate(imageData.MetaData.Image.ExposureStart), "Julian exposure start date"));
-            imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(imageData.MetaData.Image.ExposureStart.AddSeconds(ExposureTime / 2)), "Julian exposure mid date"));
+            imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-OBS", AstroUtil.GetJulianDate(imageData.MetaData.Image.ExposureMidPoint), "Julian exposure mid date"));
             imageData.MetaData.GenericHeaders.Add(new DoubleMetaDataHeader("JD-END", AstroUtil.GetJulianDate(imageData.MetaData.Image.ExposureStart.AddSeconds(ExposureTime)), "Julian exposure end date"));
 
             imageData.MetaData.GenericHeaders.Add(new IntMetaDataHeader("LUCKYRUN", luckyContainer.LuckyRun, "Current lucky imaging run for the target"));
